@@ -111,6 +111,17 @@ function App() {
     setLoadingStep("Verifica elemento viewer...")
     
     if (!viewerRef.current) {
+      // If we are not in reader view yet (viewerRef is null), switch view and retry
+      if (bookId && !activeBook) {
+        const book = library.find(b => b.id === bookId)
+        if (book) {
+          setActiveBook(book)
+          // Wait for render cycle
+          setTimeout(() => loadBook(file, savedCfi, bookId), 100)
+          return
+        }
+      }
+
       console.error("[ERROR] Viewer ref is null - cannot load book")
       addToast("Errore: Elemento viewer non pronto. Attendi 2 secondi.", "error", "Errore Viewer")
       setTimeout(() => {
@@ -634,7 +645,7 @@ function App() {
                     >
                       <div className="book-cover-wrapper">
                         {book.cover ? <img src={book.cover} alt={book.title} /> : <div className="no-cover"><BookOpen size={40} opacity={0.3} /></div>}
-                        <button className="delete-btn" onClick={(e) => handleDeleteBook(e, book.id)}><Trash2 size={16} /></button>
+                        <button className="delete-btn" onClick={(e) => handleDeleteBook(e, book.id)} aria-label="Elimina libro"><Trash2 size={16} /></button>
                         <div className="progress-bar"><div className="progress-fill" style={{ width: `${book.progress || 0}%` }} /></div>
                       </div>
                       <div className="book-meta">
@@ -676,6 +687,7 @@ function App() {
                   className="menu-toggle glass-panel"
                   onClick={() => setMenuVisible(true)}
                   title="Mostra menu"
+                  aria-label="Mostra menu"
                 >
                   <ChevronUp size={20} />
                 </motion.button>
@@ -690,7 +702,7 @@ function App() {
                   exit={{ opacity: 0, y: 20 }}
                   className="controls glass-panel"
                 >
-                  <button className="nav-button" onClick={prevPage} title="Pagina precedente">
+                  <button className="nav-button" onClick={prevPage} title="Pagina precedente" aria-label="Pagina precedente">
                     <ChevronLeft size={20} />
                   </button>
                   <div className="divider" />
@@ -698,25 +710,25 @@ function App() {
                     setShowTOC(!showTOC)
                     setShowBookmarks(false)
                     setShowSearch(false)
-                  }} title="Indice">
+                  }} title="Indice" aria-label="Indice">
                     <List size={20} />
                   </button>
                   <button className={`nav-button ${showBookmarks ? 'active' : ''}`} onClick={() => {
                     setShowBookmarks(!showBookmarks)
                     setShowTOC(false)
                     setShowSearch(false)
-                  }} title="Segnalibri">
+                  }} title="Segnalibri" aria-label="Segnalibri">
                     <Bookmark size={20} />
                   </button>
                   <button className={`nav-button ${showSearch ? 'active' : ''}`} onClick={() => {
                     setShowSearch(!showSearch)
                     setShowTOC(false)
                     setShowBookmarks(false)
-                  }} title="Cerca">
+                  }} title="Cerca" aria-label="Cerca">
                     <Search size={20} />
                   </button>
                   <div className="divider" />
-                  <button className="nav-button" onClick={handleReturnToLibrary} title="Torna alla Libreria">
+                  <button className="nav-button" onClick={handleReturnToLibrary} title="Torna alla Libreria" aria-label="Torna alla Libreria">
                     <BookOpen size={20} />
                   </button>
                   <button className={`nav-button ${showSettings ? 'active' : ''}`} onClick={() => {
@@ -724,15 +736,15 @@ function App() {
                     setShowTOC(false)
                     setShowBookmarks(false)
                     setShowSearch(false)
-                  }} title="Impostazioni">
+                  }} title="Impostazioni" aria-label="Impostazioni">
                     <Settings size={20} />
                   </button>
                   <div className="divider" />
-                  <button className="nav-button" onClick={nextPage} title="Pagina successiva">
+                  <button className="nav-button" onClick={nextPage} title="Pagina successiva" aria-label="Pagina successiva">
                     <ChevronRight size={20} />
                   </button>
                   <div className="divider" />
-                  <button className="nav-button" onClick={() => setMenuVisible(false)} title="Nascondi menu">
+                  <button className="nav-button" onClick={() => setMenuVisible(false)} title="Nascondi menu" aria-label="Nascondi menu">
                     <ChevronDown size={20} />
                   </button>
                 </motion.div>
@@ -750,7 +762,7 @@ function App() {
                 >
                   <div className="settings-header">
                     <h4>Impostazioni</h4>
-                    <button onClick={() => setShowSettings(false)}><X size={18} /></button>
+                    <button onClick={() => setShowSettings(false)} aria-label="Chiudi impostazioni"><X size={18} /></button>
                   </div>
                   <div className="setting-group">
                     <label>Tema</label>
@@ -758,6 +770,7 @@ function App() {
                       {Object.keys(THEMES).map(t => (
                         <button key={t} className={`theme-btn ${currentTheme === t ? 'active' : ''}`}
                           style={{ background: THEMES[t].body.background, border: `1px solid ${currentTheme === t ? 'var(--accent)' : 'rgba(0,0,0,0.1)'}` }}
+                          aria-label={`Tema ${THEMES[t].name}`}
                           onClick={async () => {
                             setCurrentTheme(t)
                             if (rendition) {
@@ -802,7 +815,7 @@ function App() {
                             await rendition.display(location.start.cfi)
                           }
                         }
-                      }}>-</button>
+                      }} aria-label="Diminuisci dimensione font">-</button>
                       <span>{fontSize}%</span>
                       <button onClick={async () => {
                         const s = Math.min(fontSize + 10, 200)
@@ -814,7 +827,7 @@ function App() {
                             await rendition.display(location.start.cfi)
                           }
                         }
-                      }}>+</button>
+                      }} aria-label="Aumenta dimensione font">+</button>
                     </div>
                   </div>
                 </motion.div>
@@ -833,7 +846,7 @@ function App() {
                 >
                   <div className="settings-header">
                     <h4>Indice</h4>
-                    <button onClick={() => setShowTOC(false)}><X size={18} /></button>
+                    <button onClick={() => setShowTOC(false)} aria-label="Chiudi indice"><X size={18} /></button>
                   </div>
                   <div className="panel-content">
                     {toc.length === 0 ? (
@@ -869,10 +882,10 @@ function App() {
                   <div className="settings-header">
                     <h4>Segnalibri</h4>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={addBookmark} className="add-bookmark-btn" title="Aggiungi segnalibro">
+                      <button onClick={addBookmark} className="add-bookmark-btn" title="Aggiungi segnalibro" aria-label="Aggiungi segnalibro">
                         <Plus size={18} />
                       </button>
-                      <button onClick={() => setShowBookmarks(false)}><X size={18} /></button>
+                      <button onClick={() => setShowBookmarks(false)} aria-label="Chiudi segnalibri"><X size={18} /></button>
                     </div>
                   </div>
                   <div className="panel-content">
@@ -891,6 +904,7 @@ function App() {
                             <button
                               className="bookmark-delete"
                               onClick={() => removeBookmark(bookmark.id)}
+                              aria-label="Rimuovi segnalibro"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -915,7 +929,7 @@ function App() {
                 >
                   <div className="settings-header">
                     <h4>Cerca nel libro</h4>
-                    <button onClick={() => setShowSearch(false)}><X size={18} /></button>
+                    <button onClick={() => setShowSearch(false)} aria-label="Chiudi ricerca"><X size={18} /></button>
                   </div>
                   <div className="panel-content">
                     <div className="search-box">
@@ -926,7 +940,7 @@ function App() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && performSearch()}
                       />
-                      <button onClick={performSearch} className="search-btn">
+                      <button onClick={performSearch} className="search-btn" aria-label="Cerca">
                         <Search size={18} />
                       </button>
                     </div>
@@ -969,10 +983,10 @@ function App() {
                   }}
                 >
                   <div className="highlight-colors">
-                    <button onClick={() => addHighlight('#ffeb3b')} style={{ background: '#ffeb3b' }} title="Giallo" />
-                    <button onClick={() => addHighlight('#81c784')} style={{ background: '#81c784' }} title="Verde" />
-                    <button onClick={() => addHighlight('#64b5f6')} style={{ background: '#64b5f6' }} title="Blu" />
-                    <button onClick={() => addHighlight('#ffb74d')} style={{ background: '#ffb74d' }} title="Arancione" />
+                    <button onClick={() => addHighlight('#ffeb3b')} style={{ background: '#ffeb3b' }} title="Giallo" aria-label="Evidenziatore Giallo" />
+                    <button onClick={() => addHighlight('#81c784')} style={{ background: '#81c784' }} title="Verde" aria-label="Evidenziatore Verde" />
+                    <button onClick={() => addHighlight('#64b5f6')} style={{ background: '#64b5f6' }} title="Blu" aria-label="Evidenziatore Blu" />
+                    <button onClick={() => addHighlight('#ffb74d')} style={{ background: '#ffb74d' }} title="Arancione" aria-label="Evidenziatore Arancione" />
                   </div>
                 </motion.div>
               )}

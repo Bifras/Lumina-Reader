@@ -1,0 +1,3 @@
+## 2026-01-27 - [Fixing Race Condition in Book Loading]
+**Learning:** `epub.js` integration with React requires ensuring the container element exists before attempting to render. `viewerRef` can be null if the component is conditionally rendered. Relying on `activeBook` state to trigger the render of the viewer container is necessary before accessing `viewerRef`. A pattern of checking `viewerRef`, setting `activeBook`, and retrying/waiting is a robust workaround for legacy imperative code.
+**Action:** When working with conditional rendering of 3rd party library containers, always verify the container's existence and manage the state transition explicitly, possibly using `useEffect` or retry logic if refactoring is not possible.
