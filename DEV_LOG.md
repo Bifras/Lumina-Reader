@@ -140,6 +140,29 @@
 - `src/hooks/useBookLoader.js` - Applica tema dopo display
 - `src/App.jsx` - Salva/carica tema da localStorage
 
+### ✨ Feature - Anteprima Font
+
+**Implementazione:**
+- **Hover preview**: Passando il mouse su un font, viene applicato immediatamente al libro
+- **Restore on leave**: Uscendo dal bottone, torna al font precedente
+- **Click to confirm**: Cliccando si conferma la selezione
+- **Label "Anteprima"**: Aggiunto indicatore visivo sotto il nome del font
+
+**Code snippet:**
+```jsx
+<button
+  onMouseEnter={() => handleFontHover(font.id)}
+  onMouseLeave={handleFontLeave}
+  onClick={() => handleFontSelect(font.id)}
+>
+  <div className="font-name">{font.name}</div>
+  <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Anteprima</div>
+</button>
+```
+
+**File modificati:**
+- `src/views/ReaderView.jsx` - Aggiunti handler hover e funzioni di preview
+
 ### 🔄 Todo Aggiornati
 
 #### 🔥 Priorità Alta (COMPLETATI)
