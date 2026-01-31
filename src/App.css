@@ -825,33 +825,57 @@
   gap: 0.8rem;
 }
 
+.font-preview-hint {
+  font-size: 0.7rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--accent-warm);
+  opacity: 0.8;
+  font-style: italic;
+}
+
 .font-option {
   background: var(--surface-card);
   border: 2px solid transparent;
   border-radius: 12px;
-  padding: 0.8rem;
+  padding: 1rem 0.8rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
   height: 100%;
   color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .font-option:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
   background: var(--surface-hover);
+  border-color: var(--accent-warm);
 }
 
 .font-option.active {
-  border-color: var(--accent);
+  border-color: var(--accent-warm);
   background: var(--surface-hover);
+  box-shadow: 0 4px 12px rgba(192, 93, 78, 0.15);
 }
 
-.font-name {
-  font-size: 1.1rem;
-  margin-bottom: 0.2rem;
+.font-sample {
+  font-size: 1.8rem;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.font-label {
+  font-size: 0.8rem;
+  font-family: var(--font-ui);
+  opacity: 0.7;
+  font-weight: 500;
 }
 
 /* Font Controls - "Pill" Design */

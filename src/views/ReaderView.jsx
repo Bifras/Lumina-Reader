@@ -60,7 +60,6 @@ const ReaderView = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [menuVisible, setMenuVisible] = useState(true)
-  const [previewFont, setPreviewFont] = useState(null)
 
   // Keyboard navigation
   useEffect(() => {
@@ -115,47 +114,13 @@ const ReaderView = ({
     }
   }
 
-  const handleFontHover = (fontId) => {
-    if (!rendition || !fontId) return
-    // Apply preview font temporarily
-    const font = FONT_OPTIONS.find(f => f.id === fontId)?.family || 'Lora'
-    const contents = rendition.getContents()
-    if (contents && contents.length > 0) {
-      contents.forEach(content => {
-        if (content && typeof content.addStylesheetRules === 'function') {
-          content.addStylesheetRules({
-            'body': { 'font-family': `${font}, serif !important` },
-            'p, span, div, h1, h2, h3, h4, h5, h6, li': {
-              'font-family': `${font}, serif !important`
-            }
-          })
-        }
-      })
-    }
-  }
-
-  const handleFontLeave = () => {
-    if (!rendition || !previewFont) return
-    // Restore original font
-    const font = FONT_OPTIONS.find(f => f.id === readingFont)?.family || 'Lora'
-    const contents = rendition.getContents()
-    if (contents && contents.length > 0) {
-      contents.forEach(content => {
-        if (content && typeof content.addStylesheetRules === 'function') {
-          content.addStylesheetRules({
-            'body': { 'font-family': `${font}, serif !important` },
-            'p, span, div, h1, h2, h3, h4, h5, h6, li': {
-              'font-family': `${font}, serif !important`
-            }
-          })
-        }
-      })
-    }
-  }
-
   const handleFontSelect = (fontId) => {
-    setPreviewFont(null)
     onFontChange(fontId)
+    // Apply font immediately via rendition
+    if (rendition) {
+      const font = FONT_OPTIONS.find(f => f.id === fontId)?.family || 'Lora'
+      rendition.themes.font(`${font}`)
+    }
   }
 
   return (
@@ -486,28 +451,21 @@ const ReaderView = ({
 
             {/* Font Family */}
             <div className="setting-group">
-              <label>Carattere</label>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Carattere</span>
+                <span className="font-preview-hint">✨ Passa col mouse per l'anteprima</span>
+              </label>
               <div className="font-selector">
                 {FONT_OPTIONS.map((font) => (
                   <button
                     key={font.id}
                     className={`font-option ${readingFont === font.id ? 'active' : ''}`}
                     onClick={() => handleFontSelect(font.id)}
-                    onMouseEnter={() => handleFontHover(font.id)}
-                    onMouseLeave={handleFontLeave}
-                    style={{ 
-                      fontFamily: font.family,
-                      cursor: 'pointer',
-                      position: 'relative',
-                      zIndex: 1
-                    }}
+                    title={font.name}
+                    style={{ fontFamily: font.family }}
                   >
-                    <div className="font-name">
-                      {font.name}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '4px' }}>
-                      Anteprima
-                    </div>
+                    <span className="font-sample">Aa</span>
+                    <span className="font-label">{font.name}</span>
                   </button>
                 ))}
               </div>
