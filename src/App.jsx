@@ -98,34 +98,107 @@ function App() {
   const loadingRef = useRef(false)  // Track if we're currently loading to prevent state interference
 
   const handleFileUpload = async (file) => {
-    if (!file || !file.name.endsWith('.epub')) {
-      addToast("Per favore carica un file EPUB valido", "error")
+    // Validazione file
+    if (!file) {
+      addToast("Nessun file selezionato", "error", "Errore")
+      return
+    }
+
+    // Validazione estensione
+    if (!file.name.toLowerCase().endsWith('.epub')) {
+      addToast("Il file deve avere estensione .epub", "error", "Formato non valido")
+      return
+    }
+
+    // Validazione dimensione
+    if (file.size === 0) {
+      addToast("Il file è vuoto (0 bytes)", "error", "File non valido")
       return
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      addToast("Il file è troppo grande. Dimensione massima: 100MB", "error")
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1)
+      addToast(`File troppo grande (${sizeMB}MB). Max: 100MB`, "error", "Dimensione eccessiva")
       return
     }
 
     setIsLoading(true)
-    setLoadingStep("Analisi del libro...")
+    setLoadingStep("Lettura file...")
+
+    let arrayBuffer
+    try {
+      arrayBuffer = await file.arrayBuffer()
+      
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error("FILE_EMPTY")
+      }
+      
+      // Validazione base: verifica che sia un ZIP (EPUB è un ZIP)
+      const header = new Uint8Array(arrayBuffer.slice(0, 4))
+      const isZip = header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04
+      if (!isZip) {
+        throw new Error("NOT_ZIP")
+      }
+    } catch (readError) {
+      setIsLoading(false)
+      setLoadingStep(null)
+      
+      if (readError.message === "FILE_EMPTY") {
+        addToast("Il file è vuoto", "error", "Errore lettura")
+      } else if (readError.message === "NOT_ZIP") {
+        addToast("Il file non è un EPUB valido (deve essere un archivio ZIP)", "error", "Formato non valido")
+      } else {
+        addToast("Errore durante la lettura del file", "error", "Errore")
+      }
+      console.error("[UPLOAD] File read error:", readError)
+      return
+    }
+
+    setLoadingStep("Analisi EPUB...")
 
     try {
-      const arrayBuffer = await file.arrayBuffer()
       const book = ePub(arrayBuffer)
-      const metadata = await book.loaded.metadata
-      const coverUrl = await book.coverUrl()
+      
+      // Verifica che l'EPUB sia valido cercando di caricare i metadati
+      let metadata
+      try {
+        metadata = await Promise.race([
+          book.loaded.metadata,
+          new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 10000))
+        ])
+      } catch (metaError) {
+        if (metaError.message === "TIMEOUT") {
+          throw new Error("METADATA_TIMEOUT")
+        }
+        throw new Error("METADATA_ERROR")
+      }
+
+      // Verifica che ci sia almeno un titolo
+      if (!metadata || (!metadata.title && !file.name)) {
+        throw new Error("NO_METADATA")
+      }
+
+      let coverUrl = null
+      try {
+        coverUrl = await book.coverUrl()
+      } catch {
+        console.log("[UPLOAD] No cover found, using default")
+      }
 
       const bookId = generateId()
 
-      setLoadingStep("Salvataggio nel database...")
-      await saveBookFile(bookId, arrayBuffer)
+      setLoadingStep("Salvataggio...")
+      
+      try {
+        await saveBookFile(bookId, arrayBuffer)
+      } catch {
+        throw new Error("SAVE_ERROR")
+      }
 
       const newLibrary = await saveBookMetadata({
         id: bookId,
-        title: metadata.title || file.name,
-        author: metadata.creator || "Autore Sconosciuto",
+        title: metadata.title || file.name.replace('.epub', ''),
+        author: metadata.creator || "Autore sconosciuto",
         cover: coverUrl,
         addedAt: Date.now(),
         progress: 0,
@@ -133,10 +206,20 @@ function App() {
       })
 
       setLibrary(newLibrary)
-      addToast("Libro aggiunto con successo", "success")
+      addToast(`"${metadata.title || file.name}" aggiunto`, "success", "Libro aggiunto")
     } catch (error) {
-      console.error("Upload error:", error)
-      addToast("Errore durante il caricamento del libro", "error")
+      console.error("[UPLOAD] Error:", error)
+      
+      // Messaggi di errore specifici
+      const errorMessages = {
+        'METADATA_TIMEOUT': ["L'EPUB impiega troppo tempo a rispondere. Potrebbe essere corrotto.", "Timeout"],
+        'METADATA_ERROR': ["Impossibile leggere i metadati dell'EPUB. Il file potrebbe essere danneggiato.", "EPUB corrotto"],
+        'NO_METADATA': ["L'EPUB non contiene informazioni valide.", "Metadati mancanti"],
+        'SAVE_ERROR': ["Errore durante il salvataggio. Spazio insufficiente?", "Errore salvataggio"]
+      }
+      
+      const [msg, title] = errorMessages[error.message] || ["Errore durante il caricamento del libro", "Errore"]
+      addToast(msg, "error", title)
     } finally {
       setIsLoading(false)
       setLoadingStep(null)
@@ -1262,8 +1345,33 @@ function App() {
       {isLoading && (
         <div className="loader-container">
           <div className="loader-content">
-            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} style={{ width: 40, height: 40, border: '3px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', marginBottom: '1rem' }} />
-            <p>{loadingStep || "Preparazione del libro..."}</p>
+            <motion.div 
+              animate={{ rotate: 360 }} 
+              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} 
+              style={{ width: 48, height: 48, border: '3px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', marginBottom: '1.5rem' }} 
+            />
+            <p style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-main)' }}>
+              {loadingStep || "Preparazione del libro..."}
+            </p>
+            {/* Progress Bar */}
+            <div style={{ width: '200px', height: '4px', background: 'rgba(0,0,0,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ 
+                  width: loadingStep?.includes('Lettura') ? '25%' : 
+                         loadingStep?.includes('Analisi') ? '50%' :
+                         loadingStep?.includes('Salvataggio') ? '75%' :
+                         loadingStep?.includes('Completato') ? '100%' :
+                         loadingStep?.includes('Pulizia') ? '10%' :
+                         loadingStep?.includes('Preparazione') ? '30%' :
+                         loadingStep?.includes('Caricamento') ? '40%' :
+                         loadingStep?.includes('Rendering') ? '70%' :
+                         '50%'
+                }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                style={{ height: '100%', background: 'var(--accent)', borderRadius: '2px' }}
+              />
+            </div>
           </div>
         </div>
       )}
