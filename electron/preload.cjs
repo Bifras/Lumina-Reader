@@ -2,7 +2,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     getAppPath: () => ipcRenderer.invoke('get-app-path'),
-    saveBookFile: (id, buffer) => ipcRenderer.invoke('save-book', { id, buffer }),
+    saveBookFile: (id, arrayBuffer) => {
+        // Convert ArrayBuffer to Uint8Array for IPC serialization
+        const uint8Array = new Uint8Array(arrayBuffer);
+        return ipcRenderer.invoke('save-book', { id, buffer: uint8Array });
+    },
     deleteBookFile: (id) => ipcRenderer.invoke('delete-book-file', id),
     getBookServerPort: () => ipcRenderer.invoke('get-book-server-port'),
     // Window Controls

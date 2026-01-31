@@ -1,0 +1,221 @@
+# 📓 Lumina Reader - Development Log
+
+**Data:** 29 Gennaio 2026  
+**Sessione:** Bug Fixing & Stabilizzazione  
+**Stato:** ✅ Libro si carica e si visualizza correttamente
+
+---
+
+## 🎯 Cosa Abbiamo Risolto Oggi
+
+### 🔴 Bug Critici (7 fixati)
+
+| # | Bug | Fix | File |
+|---|-----|-----|------|
+| **#12** | ArrayBuffer IPC Serialization | Convertito ArrayBuffer → Uint8Array in preload, ricostruito in main | `electron/preload.cjs`, `main.cjs` |
+| **#13** | Rendition Event Listener Memory Leak | Aggiunto `relocatedListenerRef` per cleanup | `App.jsx` |
+| **#14** | Search Async Bug | Sostituito `spine.each` con `spine.spineItems.map()` + `Promise.all()` | `App.jsx` |
+| **#16** | DOM Event Listener Cleanup | Aggiunti null check e try-catch nel cleanup | `App.jsx` |
+| **#19** | CFI Position Not Validated | Validazione `location?.start?.cfi` prima di creare bookmark | `App.jsx` |
+| **#29** | Missing Null Check Book Loading | Check esistenza libro prima di `setActiveBook()` | `App.jsx` |
+| **#24** | Crypto.randomUUID Non Disponibile | Aggiunto `generateId()` con fallback Math.random() | `App.jsx`, `db.js` |
+
+### 🟠 Bug Major (4 fixati)
+
+| # | Bug | Fix | File |
+|---|-----|-----|------|
+| **#1** | Collection Filtering Non Funzionante | Connesso `useCollectionStore`, aggiunto `filteredLibrary` con `useMemo` | `App.jsx` |
+| **ESLint** | Errori di import | Aggiunti commenti `eslint-disable` dove appropriato | `App.jsx`, `CollectionSidebar.jsx` |
+| **Hooks** | Dependency Warnings | Aggiunte spiegazioni per dipendenze mancanti | `App.jsx` |
+| **#2** | Heart Icon Mancante | Documentato icon mapping | `CollectionSidebar.jsx` |
+
+### 🟡 Rendering Fix (La Chiave di Oggi!)
+
+**Problema:** Il libro non si visualizzava - solo schermo nero  
+**Root Cause:** `AnimatePresence mode="wait"` ritardava il rendering del viewer, ma l'useEffect controllava `viewerRef` immediatamente
+
+**Soluzioni Applicate:**
+
+1. **Polling per Viewer Element** (`App.jsx`)
+   - Sostituito timeout singolo con polling ogni 100ms
+   - Max 50 tentativi (5 secondi)
+   - Reset stato quando si torna alla libreria
+
+2. **Altezza Viewer** (`App.css`)
+   ```css
+   #viewer {
+     height: calc(100vh - 140px);
+     min-height: 500px;
+   }
+   ```
+
+3. **Supporto Browser Dev Mode** (`db.js`, `App.jsx`)
+   - `saveBookFile()` ora salva in IndexedDB se Electron non disponibile
+   - Nuova funzione `getBookFile()` per recuperare da IndexedDB o server
+   - Books caricati prima di oggi NON funzionano in browser mode (non erano salvati)
+
+4. **Debug Logging Estensivo**
+   - Log per ogni step del caricamento
+   - Verifica dimensione file (0 bytes check)
+   - Retry con timeout aumentato (8s)
+
+---
+
+## 📁 File Modificati Oggi
+
+```
+electron/preload.cjs        - Conversione ArrayBuffer → Uint8Array
+electron/main.cjs           - Ricostruzione buffer + logging
+src/App.jsx                 - 200+ linee modificate (core fixes)
+src/components/CollectionSidebar.jsx - ESLint fix
+src/db.js                   - IndexedDB storage + getBookFile()
+src/App.css                 - Altezza viewer fissata
+```
+
+---
+
+## 🏗️ Architettura Attuale
+
+### State Management
+- **Zustand Stores:** Esistono ma parzialmente utilizzati
+  - `useCollectionStore` ✅ Usato per filtraggio
+  - `useLibraryStore` ⚠️ Definito ma App.jsx usa stato locale
+  - `useReaderStore` ⚠️ Definito ma non usato
+  - `useToastStore` ⚠️ Definito ma non usato
+  - `useAppStore` ✅ Usato per preferenze (persist)
+
+### Flusso Caricamento Libro
+```
+1. Click libro → loadBook()
+2. setActiveBook() → trigger re-render
+3. AnimatePresence anima uscita library
+4. useEffect polling attende viewerRef
+5. viewerReady = true → loadBookIntoViewer()
+6. getBookFile() → IndexedDB o Electron server
+7. ePub() → renderTo() → display()
+```
+
+### Storage
+- **Metadati:** localforage (IndexedDB) - `books`
+- **File EPUB:** 
+  - Electron: filesystem `userData/books/`
+  - Browser: localforage `book_file_${id}`
+- **Collezioni:** localforage `collections`
+- **Preferenze:** localforage (zustand persist)
+
+---
+
+## ✅ Stato Attuale
+
+### Funziona
+- ✅ Upload libro (drag & drop e file picker)
+- ✅ Visualizzazione libreria con grid
+- ✅ Apertura libro in reader
+- ✅ Rendering pagine EPUB
+- ✅ Navigazione pagine (frecce, bottoni)
+- ✅ Cambio tema (light/sepia/dark)
+- ✅ Cambio font e dimensione
+- ✅ Collezioni sidebar (UI)
+- ✅ Bookmark (aggiunta/rimozione)
+- ✅ TOC (Table of Contents)
+- ✅ Search nel libro
+- ✅ Highlights (selezione testo)
+
+### Problemi Noti / Limitazioni
+1. **Collezioni Smart:** "In Lettura", "Completati" funzionano, ma "Preferiti" richiede logica aggiuntiva
+2. **Highlight Persistence:** I highlight si salvano ma potrebbero non ripristinarsi correttamente su alcuni libri
+3. **Search:** La ricerca può essere lenta su libri grandi (itera tutto lo spine)
+4. **Performance:** Nessuna virtualizzazione nella lista libri (problema con >100 libri)
+5. **Mobile:** Non testato su mobile/responsive
+
+---
+
+## 📝 Todo per Domani / Futuro
+
+### 🔥 Priorità Alta
+- [ ] **Testare Electron build** - Verificare che IPC funzioni in produzione
+- [ ] **Gestione errori upload** - Messaggi più specifici per EPUB corrotti
+- [ ] **Progress bar reale** - Mostrare % caricamento durante upload
+- [ ] **Cover placeholder** - Migliorare UI quando manca la cover
+
+### 🛠️ Miglioramenti
+- [ ] **Rimuovere stores non usati** o integrarli meglio
+- [ ] **Refactor App.jsx** - Troppo grande (>1000 linee), splittare
+- [ ] **Test unitari** - Aggiungere Vitest + React Testing Library
+- [ ] **TypeScript** - Migrare da JS a TS
+- [ ] **Virtualizzazione lista** - react-window per librerie grandi
+
+### ✨ Features
+- [ ] **Ricerca nella libreria** (non solo nel libro)
+- [ ] **Ordinamento libri** (per titolo, autore, data, progresso)
+- [ ] **Import/export libreria**
+- [ ] **Fullscreen mode**
+- [ ] **Tocca per cambiare pagina** (zone sinistra/destra)
+- [ ] **Note/annotazioni** (oltre agli highlight)
+
+### 🐛 Bug da Investigare
+- [ ] **Duplicate key warning** nei toast (visto nei log)
+- [ ] **Theme flash on load** - Tema scuro che lampeggia all'avvio
+- [ ] **Memory leak potenziale** - Verificare cleanup di epub.js
+
+---
+
+## 🎓 Lezioni Apprese
+
+### Su epub.js
+- `rendition.display()` richiede elemento DOM visibile e con dimensioni
+- `spine.each()` non supporta async - usare `spine.spineItems.map()`
+- Event listener `relocated` va sempre rimosso con `.off()`
+- `book.locations.generate()` è opzionale ma utile per percentuali
+
+### Su React + Framer Motion
+- `AnimatePresence mode="wait"` ritarda il mount del nuovo componente
+- `useEffect` che dipende da `activeBook` parte prima che il DOM sia pronto
+- Polling è più affidabile di timeout fissi per aspettare DOM
+
+### Su Electron
+- `ArrayBuffer` non serializzabile direttamente via IPC
+- `Uint8Array` funziona meglio ma arriva come oggetto con chiavi numeriche
+- `Object.values()` per ricostruire array dal formato serializzato
+
+---
+
+## 🔗 Comandi Utili
+
+```bash
+# Development
+npm run dev              # Vite dev server
+npm run electron:dev     # Vite + Electron
+
+# Build
+npm run build            # Solo Vite build
+npm run electron:build   # Build completo app
+
+# Qualità
+npm run lint             # ESLint check
+```
+
+---
+
+## 📸 Screenshot per Documentazione
+
+Se fai modifiche UI, aggiungi screenshot qui:
+- [ ] Library view (vuota)
+- [ ] Library view (con libri)
+- [ ] Reader view
+- [ ] Settings panel
+- [ ] Collection sidebar
+
+---
+
+## 💡 Idee per il Brand
+
+- **Nome:** Lumina Reader ✨
+- **Tagline:** "La tua libreria, sempre con te"
+- **Colori:** Crema (#faf9f6), Accento terracotta (#c05d4e)
+- **Font:** Playfair Display (headers), Lora (body), Inter (UI)
+
+---
+
+**Fine Sessione - 29 Gennaio 2026**  
+**Prossimo aggiornamento:** Domani mattina ☕

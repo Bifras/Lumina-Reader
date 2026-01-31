@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import localforage from 'localforage'
 import ePub from 'epubjs'
 // eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Upload, BookOpen, Settings, X, Plus, Trash2, Clock, List, Bookmark, Search, ChevronDown, ChevronUp } from 'lucide-react'
-import { saveBookMetadata, getLibrary, updateProgress, removeBook, clearLibrary, saveBookFile, deleteBookFile } from './db'
+import { ChevronLeft, ChevronRight, Upload, BookOpen, Settings, X, Plus, Trash2, Clock, List, Bookmark, Search, ChevronDown, ChevronUp, Menu } from 'lucide-react'
+import { saveBookMetadata, getLibrary, updateProgress, removeBook, clearLibrary, saveBookFile, deleteBookFile, getBookFile, getBooksInCollection } from './db'
 import Toast from './components/Toast'
+import CollectionSidebar from './components/CollectionSidebar'
+import { useCollectionStore } from './store'
 import './App.css'
 
 const THEMES = {
@@ -32,6 +34,21 @@ const fontOptions = [
     desc: 'Con base pesante. Aiuta a prevenire la rotazione o il salto delle lettere, specifico per lettori con dislessia.'
   }
 ]
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+
+// Generate UUID with fallback for non-secure contexts
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for non-secure contexts
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
 
 function App() {
   const [library, setLibrary] = useState([])
@@ -61,13 +78,33 @@ function App() {
   const [highlightPosition, setHighlightPosition] = useState({ x: 0, y: 0 })
   const [selectedText, setSelectedText] = useState('')
   const [selectedCfiRange, setSelectedCfiRange] = useState(null)
+  
+  // Collection sidebar state
+  const [showCollectionSidebar, setShowCollectionSidebar] = useState(false)
+  
+  // Get active collection from store
+  const activeCollectionId = useCollectionStore(state => state.activeCollectionId)
+  
+  // Filter library based on active collection
+  const filteredLibrary = useMemo(() => {
+    return getBooksInCollection(activeCollectionId, library)
+  }, [activeCollectionId, library])
 
   const viewerRef = useRef(null)
+  const relocatedListenerRef = useRef(null)  // Store listener for cleanup
   const [loadingStep, setLoadingStep] = useState(null)
+  const [pendingBookLoad, setPendingBookLoad] = useState(null)
+  const [viewerReady, setViewerReady] = useState(false)
+  const loadingRef = useRef(false)  // Track if we're currently loading to prevent state interference
 
   const handleFileUpload = async (file) => {
     if (!file || !file.name.endsWith('.epub')) {
       addToast("Per favore carica un file EPUB valido", "error")
+      return
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      addToast("Il file è troppo grande. Dimensione massima: 100MB", "error")
       return
     }
 
@@ -80,7 +117,7 @@ function App() {
       const metadata = await book.loaded.metadata
       const coverUrl = await book.coverUrl()
 
-      const bookId = crypto.randomUUID()
+      const bookId = generateId()
 
       setLoadingStep("Salvataggio nel database...")
       await saveBookFile(bookId, arrayBuffer)
@@ -106,25 +143,50 @@ function App() {
     }
   }
 
-  const loadBook = async (file, savedCfi = null, bookId = null) => {
-    setIsLoading(true)
-    setLoadingStep("Verifica elemento viewer...")
-    
+  // Actually load book into viewer (called from useEffect when DOM is ready)
+  const loadBookIntoViewer = async ({ file, savedCfi, bookId }) => {
+    // Abort if already loading (prevents state interference from concurrent loads)
+    if (loadingRef.current) {
+      console.log("[DEBUG] loadBookIntoViewer aborted - already loading")
+      return
+    }
+
+    loadingRef.current = true
+    console.log("[DEBUG] loadBookIntoViewer starting:", { hasFile: !!file, bookId, savedCfi })
+
     if (!viewerRef.current) {
       console.error("[ERROR] Viewer ref is null - cannot load book")
-      addToast("Errore: Elemento viewer non pronto. Attendi 2 secondi.", "error", "Errore Viewer")
-      setTimeout(() => {
-        if (!viewerRef.current) {
-          addToast("Viewer ancora non pronto. Il libro potrebbe essere troppo grande o corrotto.", "error", "Viewer Non Pronto")
-        }
-      }, 2000)
-      
+      addToast("Errore: Elemento viewer non pronto.", "error", "Errore Viewer")
       setIsLoading(false)
       setLoadingStep(null)
+      setPendingBookLoad(null)
+      loadingRef.current = false
       return
     }
 
     setLoadingStep("Pulizia precedente...")
+    
+    // Clean up previous rendition listeners
+    if (rendition && relocatedListenerRef.current) {
+      try {
+        rendition.off("relocated", relocatedListenerRef.current)
+        console.log("[DEBUG] Cleaned up previous relocated listener")
+      } catch (e) {
+        console.warn("[WARN] Failed to remove relocated listener:", e)
+      }
+      relocatedListenerRef.current = null
+    }
+
+    // Clear all annotations when book changes
+    if (rendition?.annotations) {
+      try {
+        rendition.annotations.clear()
+        console.log("[DEBUG] Cleared all annotations")
+      } catch (e) {
+        console.warn("[WARN] Failed to clear annotations:", e)
+      }
+    }
+    
     if (bookEngine) {
       try {
         bookEngine.destroy()
@@ -141,30 +203,36 @@ function App() {
 
       if (file) {
         bookData = await file.arrayBuffer()
+        console.log("[DEBUG] File book data size:", bookData.byteLength, "bytes")
+        
+        if (bookData.byteLength === 0) {
+          throw new Error("Book file is empty (0 bytes)")
+        }
+        
         book = ePub(bookData)
         setBookEngine(book)
+        console.log("[DEBUG] EPUB book object created from file")
       } else if (bookId) {
         try {
-          setLoadingStep("Connessione al server libri...")
-          const port = await window.electronAPI?.getBookServerPort()
-
-          if (!port) {
-            throw new Error("Server port non disponibile")
+          setLoadingStep("Caricamento libro...")
+          bookData = await getBookFile(bookId)
+          
+          if (!bookData) {
+            throw new Error("Book file not found")
           }
-
-          setLoadingStep("Scaricamento libro...")
-          const response = await fetch(`http://127.0.0.1:${port}/${bookId}.epub`)
-
-          if (!response.ok) {
-            throw new Error(`Server response: ${response.status} ${response.statusText}`)
+          
+          console.log("[DEBUG] Book data loaded, size:", bookData.byteLength, "bytes")
+          
+          if (bookData.byteLength === 0) {
+            throw new Error("Book file is empty (0 bytes)")
           }
-
-          bookData = await response.arrayBuffer()
+          
           book = ePub(bookData)
           setBookEngine(book)
+          console.log("[DEBUG] EPUB book object created")
         } catch (fetchError) {
-          console.error("[ERROR] Fetch failed:", fetchError)
-          addToast(`Errore scaricamento libro: ${fetchError.message}`, "error", "Errore Download")
+          console.error("[ERROR] Failed to load book file:", fetchError)
+          addToast(`Errore caricamento libro: ${fetchError.message}`, "error", "Errore Download")
           throw fetchError
         }
       } else {
@@ -172,22 +240,32 @@ function App() {
         addToast("Nessun file o libro selezionato", "error", "Parametri Mancanti")
         setIsLoading(false)
         setLoadingStep(null)
+        setPendingBookLoad(null)
         return
       }
 
       setLoadingStep("Rendering...")
-      
-      const rendition = book.renderTo(viewerRef.current, {
-        width: "100%",
-        height: "100%",
-        flow: "paginated",
-        manager: "default"
-      })
+      console.log("[DEBUG] Calling book.renderTo() with viewer element:", viewerRef.current)
+
+      let rendition
+      try {
+        rendition = book.renderTo(viewerRef.current, {
+          width: "100%",
+          height: "100%",
+          flow: "paginated",
+          manager: "default"
+        })
+        console.log("[DEBUG] Rendition created successfully:", !!rendition)
+      } catch (renderError) {
+        console.error("[ERROR] Failed to create rendition:", renderError)
+        throw new Error(`Failed to create book renderer: ${renderError.message}`)
+      }
 
       setRendition(rendition)
 
       const meta = await book.loaded.metadata
       setMetadata(meta)
+      setActiveBook(bookId ? library.find(b => b.id === bookId) : { id: 'temp', title: meta.title })
 
       rendition.themes.register("light", THEMES.light)
       rendition.themes.register("sepia", THEMES.sepia)
@@ -197,26 +275,39 @@ function App() {
       rendition.themes.fontSize(`${fontSize}%`)
 
       const displayWithTimeout = async (rend, location) => {
+        console.log("[DEBUG] Displaying at location:", location || "start")
         const displayPromise = rendition.display(location)
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout display dopo 5 secondi")), 5000)
+          setTimeout(() => reject(new Error("Timeout display dopo 5 secondi")), 8000)
         )
 
         return Promise.race([displayPromise, timeoutPromise])
       }
 
-      await displayWithTimeout(rendition, savedCfi || undefined)
+      try {
+        await displayWithTimeout(rendition, savedCfi || undefined)
+        console.log("[DEBUG] Book displayed successfully")
+      } catch (displayError) {
+        console.error("[ERROR] Failed to display book:", displayError)
+        // Try displaying without saved location as fallback
+        if (savedCfi) {
+          console.log("[DEBUG] Retrying display from start...")
+          await rendition.display()
+        } else {
+          throw displayError
+        }
+      }
 
-      rendition.on("relocated", (location) => {
+      // Store listener reference for cleanup
+      relocatedListenerRef.current = (location) => {
         const percent = book.locations.percentageFromCfi(location.start.cfi)
         const progress = Math.floor(percent * 100)
         if (bookId) {
           updateProgress(bookId, location.start.cfi, progress)
           setLibrary(prev => prev.map(b => b.id === bookId ? { ...b, progress, cfi: location.start.cfi } : b))
         }
-      })
-
-      setActiveBook(bookId ? library.find(b => b.id === bookId) : { id: 'temp', title: meta.title })
+      }
+      rendition.on("relocated", relocatedListenerRef.current)
 
       try {
         await book.locations.generate(1024)
@@ -226,10 +317,10 @@ function App() {
 
       setLoadingStep("Completato!")
       addToast("Libro caricato con successo", "success", "Successo")
-      
+
     } catch (error) {
       console.error("[ERROR] Load book error:", error)
-      
+
       const errorDetails = {
         'Libro corrotto o non valido': error.message?.toLowerCase()?.includes('xml') || error.message?.toLowerCase()?.includes('parse'),
         'Timeout caricamento': error.message?.toLowerCase()?.includes('timeout'),
@@ -237,20 +328,126 @@ function App() {
         'Errore server': error.message?.toLowerCase()?.includes('fetch') || error.message?.toLowerCase()?.includes('server'),
         'Errore sconosciuto': !error.message
       }
-      
+
       const errorMessage = Object.entries(errorDetails).find(([, reason]) => reason)?.[0] || 'Errore durante il caricamento'
       addToast(errorMessage, "error", "Errore Caricamento")
-      
+
     } finally {
+      loadingRef.current = false
       setIsLoading(false)
       setLoadingStep(null)
+      setPendingBookLoad(null)
     }
+  }
+
+  const loadBook = async (file, savedCfi = null, bookId = null) => {
+    console.log("[DEBUG] loadBook called with:", { hasFile: !!file, bookId, savedCfi })
+
+    // Switch to reader view first (this triggers re-render)
+    if (bookId) {
+      const book = library.find(b => b.id === bookId)
+      if (!book) {
+        console.error("[ERROR] Book not found in library:", bookId)
+        addToast("Libro non trovato nella libreria", "error")
+        return
+      }
+      setActiveBook(book)
+    } else if (file) {
+      setActiveBook({ id: 'temp', title: 'Caricamento...' })
+    }
+
+    // Wait for DOM to update, then set pending load
+    // Use setTimeout to ensure React has re-rendered
+    setTimeout(() => {
+      console.log("[DEBUG] Setting pendingBookLoad after re-render")
+      setPendingBookLoad({ file, savedCfi, bookId })
+    }, 0)
   }
 
   const prevPage = useCallback(() => rendition?.prev(), [rendition])
   const nextPage = useCallback(() => rendition?.next(), [rendition])
 
+  // Track when viewer element is available in DOM
+  useEffect(() => {
+    if (!activeBook) {
+      // Reset viewer ready when returning to library
+      if (viewerReady) {
+        console.log("[DEBUG] Resetting viewer ready (returned to library)")
+        setViewerReady(false)
+      }
+      return
+    }
+    
+    // Poll for viewer element since AnimatePresence causes delay
+    let attempts = 0
+    const maxAttempts = 50  // 5 seconds max
+    
+    const checkViewer = () => {
+      attempts++
+      const isReady = !!viewerRef.current
+      
+      if (isReady) {
+        console.log("[DEBUG] Viewer element found after", attempts, "attempts")
+        setViewerReady(true)
+        return true
+      }
+      
+      if (attempts >= maxAttempts) {
+        console.error("[ERROR] Viewer element not found after", maxAttempts, "attempts")
+        addToast("Errore: Elemento viewer non trovato", "error")
+        return true  // Stop polling
+      }
+      
+      return false
+    }
+    
+    // Check immediately first
+    if (!checkViewer()) {
+      // Then poll every 100ms
+      const interval = setInterval(() => {
+        if (checkViewer()) {
+          clearInterval(interval)
+        }
+      }, 100)
+      
+      return () => clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBook])  // viewerRef.current is a mutable ref, not a dependency
+
+  // Load book when pendingBookLoad is set and viewer is ready
+  useEffect(() => {
+    console.log("[DEBUG] Load effect check:", { 
+      hasPending: !!pendingBookLoad, 
+      viewerReady, 
+      hasViewer: !!viewerRef.current,
+      loading: loadingRef.current 
+    })
+    
+    if (pendingBookLoad && viewerReady && viewerRef.current) {
+      console.log("[DEBUG] All conditions met - loading book into viewer")
+      setIsLoading(true)
+      loadBookIntoViewer(pendingBookLoad)
+    } else if (pendingBookLoad && !viewerReady) {
+      console.log("[DEBUG] Waiting for viewer to be ready...")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBookLoad, viewerReady])  // loadBookIntoViewer is defined in component, causes infinite loop if included
+
   const handleReturnToLibrary = () => {
+    // Reset loading ref to prevent stuck state
+    loadingRef.current = false
+    
+    // Clean up rendition listeners
+    if (rendition && relocatedListenerRef.current) {
+      try {
+        rendition.off("relocated", relocatedListenerRef.current)
+      } catch (e) {
+        console.warn("[WARN] Failed to remove relocated listener on return:", e)
+      }
+      relocatedListenerRef.current = null
+    }
+    
     if (bookEngine) {
       bookEngine.destroy()
     }
@@ -258,6 +455,10 @@ function App() {
     setRendition(null)
     setBookEngine(null)
     setMetadata(null)
+    setViewerReady(false)
+    setPendingBookLoad(null)
+    setIsLoading(false)
+    setLoadingStep(null)
   }
 
   const handleDeleteBook = async (e, id) => {
@@ -285,13 +486,12 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!rendition) return
-      if (e.key === "ArrowLeft") prevPage()
-      if (e.key === "ArrowRight") nextPage()
+      if (e.key === "ArrowLeft") rendition?.prev()
+      if (e.key === "ArrowRight") rendition?.next()
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [rendition, prevPage, nextPage])
+  }, [rendition])
 
   const addToast = (message, type = 'info', title = '', duration = 4000) => {
     const id = Date.now()
@@ -301,6 +501,11 @@ function App() {
   const removeToast = (id) => {
     setToasts(prev => prev.filter(t => t.id !== id))
   }
+
+  // Apply theme to document body for CSS selectors to work
+  useEffect(() => {
+    document.body.setAttribute('data-theme', currentTheme)
+  }, [currentTheme])
 
   useEffect(() => {
     getLibrary().then(setLibrary)
@@ -314,7 +519,7 @@ function App() {
         })
       }
     }
-   }, [])
+  }, [])
 
   useEffect(() => {
     if (!rendition || !activeBook) {
@@ -325,7 +530,7 @@ function App() {
       const theme = THEMES[currentTheme]
       const font = fontOptions.find(f => f.id === readingFont)?.family || 'Lora'
       const contents = rendition.getContents()
-      
+
       if (!contents || contents.length === 0) {
         return
       }
@@ -413,10 +618,18 @@ function App() {
     if (!rendition || !activeBook) return
 
     const location = rendition.currentLocation()
+    
+    // Validate location data before creating bookmark
+    if (!location?.start?.cfi) {
+      console.warn("[WARN] Cannot add bookmark: location not available")
+      addToast("Impossibile aggiungere segnalibro: posizione non disponibile", "error")
+      return
+    }
+    
     const newBookmark = {
       id: Date.now(),
       cfi: location.start.cfi,
-      label: `Pagina ${location.start.displayed.page || '?'}`,
+      label: `Pagina ${location.start.displayed?.page || '?'}`,
       timestamp: Date.now()
     }
 
@@ -448,15 +661,21 @@ function App() {
 
     setSearchResults([])
     const results = []
+    const searchLower = searchQuery.toLowerCase()
 
-    await bookEngine.spine.each(async (item) => {
+    // spine.each doesn't await async callbacks, so we collect promises
+    const searchPromises = bookEngine.spine.spineItems.map(async (item) => {
       try {
         const doc = await item.load(bookEngine.load.bind(bookEngine))
+        // Check if doc and doc.body exist before accessing textContent
+        if (!doc || !doc.body) {
+          return
+        }
         const text = doc.body.textContent
 
-        if (text.toLowerCase().includes(searchQuery.toLowerCase())) {
-          const index = text.toLowerCase().indexOf(searchQuery.toLowerCase())
-          const snippet = text.substring(Math.max(0, index - 50), Math.min(text.length, index + searchQuery.length + 50))
+        if (text && text.toLowerCase().includes(searchLower)) {
+          const index = text.toLowerCase().indexOf(searchLower)
+          const snippet = text.substring(Math.max(0, index - 50), Math.min(text.length, index + searchLower.length + 50))
 
           results.push({
             cfi: item.cfiBase,
@@ -464,12 +683,22 @@ function App() {
             href: item.href
           })
         }
+        
+        // Unload to free memory
+        item.unload()
       } catch (e) {
-        console.log("Search error in item", e)
+        console.log("[WARN] Search error in item:", e.message)
       }
     })
 
+    // Wait for all spine items to be searched
+    await Promise.all(searchPromises)
+    
+    // Sort results by CFI for consistent ordering
+    results.sort((a, b) => a.cfi.localeCompare(b.cfi))
+    
     setSearchResults(results)
+    console.log(`[DEBUG] Search completed: ${results.length} results found`)
   }
 
   const goToSearchResult = (cfi) => {
@@ -486,7 +715,7 @@ function App() {
     const handleSelection = () => {
       const contents = rendition.getContents()
       if (!contents || contents.length === 0) return
-      
+
       const selection = contents[0].window.getSelection()
       if (!selection || selection.isCollapsed) {
         setShowHighlightPopup(false)
@@ -512,12 +741,21 @@ function App() {
 
     const contents = rendition.getContents()
     contents.forEach(content => {
-      content.document.addEventListener('mouseup', handleSelection)
+      if (content?.document) {
+        content.document.addEventListener('mouseup', handleSelection)
+      }
     })
 
     return () => {
       contents.forEach(content => {
-        content.document.removeEventListener('mouseup', handleSelection)
+        // Guard against null document (iframe may have been removed)
+        if (content?.document) {
+          try {
+            content.document.removeEventListener('mouseup', handleSelection)
+          } catch {
+            // Document may already be inaccessible, ignore
+          }
+        }
       })
     }
   }, [rendition])
@@ -555,6 +793,16 @@ function App() {
         'fill-opacity': '0.3'
       })
     })
+
+    return () => {
+      if (rendition?.annotations) {
+        try {
+          rendition.annotations.clear()
+        } catch (e) {
+          console.warn("[WARN] Failed to clear annotations in cleanup:", e)
+        }
+      }
+    }
   }, [rendition, highlights])
 
   return (
@@ -594,7 +842,37 @@ function App() {
               </div>
             )}
 
-            <div className="library-section">
+            {/* Collection Sidebar Toggle */}
+            <button
+              onClick={() => setShowCollectionSidebar(true)}
+              style={{
+                position: 'fixed',
+                left: '20px',
+                top: '50px',
+                zIndex: 30,
+                padding: '10px',
+                borderRadius: '10px',
+                border: 'none',
+                background: 'var(--surface-card)',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.9rem',
+                color: 'var(--text-main)'
+              }}
+            >
+              <Menu size={20} /> Collezioni
+            </button>
+            
+            {/* Collection Sidebar */}
+            <CollectionSidebar
+              isOpen={showCollectionSidebar}
+              onClose={() => setShowCollectionSidebar(false)}
+            />
+
+            <div className="library-section" style={{ marginLeft: showCollectionSidebar ? '260px' : '0' }}>
               <div className="library-section-header">
                 <h2>La tua Libreria</h2>
                 <div className="library-actions">
@@ -613,16 +891,16 @@ function App() {
                 <input type="file" id="lib-upload" accept=".epub" hidden onChange={(e) => handleFileUpload(e.target.files[0])} />
               </div>
 
-              {library.length === 0 ? (
+              {filteredLibrary.length === 0 ? (
                 <div className="empty-state">
                   <div className={`dropzone ${isDragOver ? 'active' : ''}`}>
                     <Upload size={48} strokeWidth={1} color="var(--accent)" />
-                    <p>Trascina qui il tuo primo libro per iniziare</p>
+                    <p>{library.length === 0 ? 'Trascina qui il tuo primo libro per iniziare' : 'Nessun libro in questa collezione'}</p>
                   </div>
                 </div>
               ) : (
                 <div className="book-grid">
-                  {library.map(book => (
+                  {filteredLibrary.map(book => (
                     <motion.div
                       key={book.id}
                       className="book-card"
@@ -664,7 +942,7 @@ function App() {
               <h2 style={{ fontSize: '1.2rem', fontFamily: 'var(--font-display)', margin: 0 }}>{metadata?.title}</h2>
             </div>
 
-            <div id="viewer" ref={viewerRef} style={{ width: '100%', flex: 1, minHeight: 0 }}></div>
+            <div id="viewer" ref={viewerRef} style={{ width: '100%', height: '100%' }}></div>
 
             {/* Menu toggle button */}
             <AnimatePresence>
