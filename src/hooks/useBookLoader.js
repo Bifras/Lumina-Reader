@@ -8,7 +8,7 @@ const THEMES = {
   dark: { name: 'Scuro', body: { background: '#121212', color: '#e0e0e0' } }
 }
 
-export const useBookLoader = (viewerRef, addToast, currentTheme = 'light', fontSize = 100) => {
+export const useBookLoader = (viewerRef, addToast, currentTheme = 'light', fontSize = 100, readingFont = 'lora') => {
   const [rendition, setRendition] = useState(null)
   const [bookEngine, setBookEngine] = useState(null)
   const [metadata, setMetadata] = useState(null)
@@ -141,10 +141,31 @@ export const useBookLoader = (viewerRef, addToast, currentTheme = 'light', fontS
         }
       }
 
-      // Apply current theme and font size immediately after display
+      // Apply current theme, font and size immediately after display
       try {
+        const fontFamily = readingFont === 'atkinson' ? 'Atkinson Hyperlegible' : 
+                          readingFont === 'bitter' ? 'Bitter' : 
+                          readingFont === 'dyslexic' ? 'OpenDyslexic' : 'Lora'
+        
         newRendition.themes.select(currentTheme)
         newRendition.themes.fontSize(`${fontSize}%`)
+        
+        // Override font using CSS injection for better specificity
+        const contents = newRendition.getContents()
+        if (contents && contents.length > 0) {
+          contents.forEach(content => {
+            if (content && content.document && content.document.head) {
+              const style = content.document.createElement('style')
+              style.id = 'lumina-font-initial'
+              style.textContent = `
+                * { font-family: ${fontFamily}, serif !important; }
+                body { font-family: ${fontFamily}, serif !important; }
+                p, span, div, h1, h2, h3, h4, h5, h6, li, em, strong, b, i { font-family: ${fontFamily}, serif !important; }
+              `
+              content.document.head.appendChild(style)
+            }
+          })
+        }
       } catch (themeError) {
         console.warn("[WARN] Failed to apply theme immediately:", themeError)
       }
@@ -199,7 +220,7 @@ export const useBookLoader = (viewerRef, addToast, currentTheme = 'light', fontS
       setLoadingStep(null)
       setPendingBookLoad(null)
     }
-  }, [viewerRef, cleanupPreviousBook, addToast, currentTheme, fontSize])
+  }, [viewerRef, cleanupPreviousBook, addToast, currentTheme, fontSize, readingFont])
 
   const resetReader = useCallback(() => {
     loadingRef.current = false

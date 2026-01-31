@@ -98,7 +98,7 @@ function App() {
     loadBookIntoViewer,
     resetReader,
     relocatedListenerRef
-  } = useBookLoader(viewerRef, addToast, currentTheme, fontSize)
+  } = useBookLoader(viewerRef, addToast, currentTheme, fontSize, readingFont)
 
   const {
     highlights,
@@ -218,36 +218,42 @@ function App() {
     if (!rendition || !activeBook) return
 
     try {
-      const theme = THEMES[currentTheme]
       const font = FONT_OPTIONS.find(f => f.id === readingFont)?.family || 'Lora'
-      const contents = rendition.getContents()
-
-      if (!contents || contents.length === 0) return
-
-      contents.forEach(content => {
-        if (!content || typeof content.addStylesheetRules !== 'function') return
-
-        content.addStylesheetRules({
-          'body': {
-            'background-color': 'transparent !important',
-            'color': theme.body.color + ' !important',
-            'font-family': `${font}, serif !important`
-          },
-          'html': {
-            'background-color': 'transparent !important'
-          },
-          'p, span, div, h1, h2, h3, h4, h5, h6, li, section, article': {
-            'color': theme.body.color + ' !important',
-            'font-family': `${font}, serif !important`
-          },
-          'a': {
-            'color': 'var(--accent-warm) !important'
-          }
-        })
-      })
-
+      
+      // Method 1: Use epub.js themes
       rendition.themes.select(currentTheme)
       rendition.themes.fontSize(`${fontSize}%`)
+      
+      // Method 2: Direct CSS injection with !important (overrides EPUB embedded CSS)
+      const contents = rendition.getContents()
+      if (contents && contents.length > 0) {
+        contents.forEach(content => {
+          if (content && content.document && content.document.head) {
+            // Remove previous font style if exists
+            const existingStyle = content.document.getElementById('lumina-font-override')
+            if (existingStyle) {
+              existingStyle.remove()
+            }
+            
+            // Inject new font style with high specificity
+            const style = content.document.createElement('style')
+            style.id = 'lumina-font-override'
+            style.textContent = `
+              * { font-family: ${font}, serif !important; }
+              body, p, span, div, h1, h2, h3, h4, h5, h6, li, em, strong, b, i, 
+              blockquote, cite, pre, code, a, label, input, button, small, sub, sup {
+                font-family: ${font}, serif !important;
+              }
+            `
+            content.document.head.appendChild(style)
+            
+            // Also set inline style on body as fallback
+            if (content.document.body) {
+              content.document.body.style.setProperty('font-family', `${font}, serif`, 'important')
+            }
+          }
+        })
+      }
       
       // Save preferences
       localforage.setItem('reading-theme', currentTheme)
