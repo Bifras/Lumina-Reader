@@ -118,6 +118,28 @@
 
 ---
 
+### 🐛 Bug Fix - Tema Persistenza
+
+**Problema:** Scelto tema scuro → esco dal libro → rientro → testo nero su sfondo scuro (illeggibile)
+
+**Causa:** Il tema non veniva applicato immediatamente dopo il caricamento del libro
+
+**Fix:**
+1. Passato `currentTheme` e `fontSize` al hook `useBookLoader`
+2. Applicato tema immediatamente dopo `rendition.display()`:
+   ```javascript
+   newRendition.themes.select(currentTheme)
+   newRendition.themes.fontSize(`${fontSize}%`)
+   ```
+3. Aggiunto persist tema in localStorage:
+   - `reading-theme` - Tema selezionato
+   - `reading-font-size` - Dimensione font
+   - Caricamento all'avvio dell'app
+
+**File modificati:**
+- `src/hooks/useBookLoader.js` - Applica tema dopo display
+- `src/App.jsx` - Salva/carica tema da localStorage
+
 ### 🔄 Todo Aggiornati
 
 #### 🔥 Priorità Alta (COMPLETATI)
@@ -125,6 +147,7 @@
 - [x] Gestione errori upload
 - [x] Progress bar reale
 - [x] Cover placeholder
+- [x] Fix persistenza tema
 
 #### 🛠️ Prossimi Task
 - [ ] Convertire icon.svg in ICO/ICNS per build production

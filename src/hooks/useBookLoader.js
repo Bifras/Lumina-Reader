@@ -8,7 +8,7 @@ const THEMES = {
   dark: { name: 'Scuro', body: { background: '#121212', color: '#e0e0e0' } }
 }
 
-export const useBookLoader = (viewerRef, addToast) => {
+export const useBookLoader = (viewerRef, addToast, currentTheme = 'light', fontSize = 100) => {
   const [rendition, setRendition] = useState(null)
   const [bookEngine, setBookEngine] = useState(null)
   const [metadata, setMetadata] = useState(null)
@@ -141,6 +141,14 @@ export const useBookLoader = (viewerRef, addToast) => {
         }
       }
 
+      // Apply current theme and font size immediately after display
+      try {
+        newRendition.themes.select(currentTheme)
+        newRendition.themes.fontSize(`${fontSize}%`)
+      } catch (themeError) {
+        console.warn("[WARN] Failed to apply theme immediately:", themeError)
+      }
+
       // Setup relocated listener for progress tracking
       relocatedListenerRef.current = (location) => {
         const percent = book.locations.percentageFromCfi(location.start.cfi)
@@ -191,7 +199,7 @@ export const useBookLoader = (viewerRef, addToast) => {
       setLoadingStep(null)
       setPendingBookLoad(null)
     }
-  }, [viewerRef, cleanupPreviousBook, addToast])
+  }, [viewerRef, cleanupPreviousBook, addToast, currentTheme, fontSize])
 
   const resetReader = useCallback(() => {
     loadingRef.current = false

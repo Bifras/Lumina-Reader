@@ -98,7 +98,7 @@ function App() {
     loadBookIntoViewer,
     resetReader,
     relocatedListenerRef
-  } = useBookLoader(viewerRef, addToast)
+  } = useBookLoader(viewerRef, addToast, currentTheme, fontSize)
 
   const {
     highlights,
@@ -108,9 +108,23 @@ function App() {
     setShowHighlightPopup
   } = useHighlights(activeBook, rendition)
 
-  // Load library on mount
+  // Load library and saved preferences on mount
   useEffect(() => {
     getLibrary().then(setLibrary)
+    
+    // Load saved theme
+    localforage.getItem('reading-theme').then(savedTheme => {
+      if (savedTheme && ['light', 'dark', 'sepia'].includes(savedTheme)) {
+        setCurrentTheme(savedTheme)
+      }
+    })
+    
+    // Load saved font size
+    localforage.getItem('reading-font-size').then(savedSize => {
+      if (savedSize && typeof savedSize === 'number') {
+        setFontSize(savedSize)
+      }
+    })
 
     // Manual reset
     if (window.location.search.includes('reset=true')) {
@@ -199,7 +213,7 @@ function App() {
     document.body.setAttribute('data-theme', currentTheme)
   }, [currentTheme])
 
-  // Apply font settings to rendition
+  // Apply font settings to rendition and save preferences
   useEffect(() => {
     if (!rendition || !activeBook) return
 
@@ -234,7 +248,11 @@ function App() {
 
       rendition.themes.select(currentTheme)
       rendition.themes.fontSize(`${fontSize}%`)
+      
+      // Save preferences
+      localforage.setItem('reading-theme', currentTheme)
       localforage.setItem('reading-font', readingFont)
+      localforage.setItem('reading-font-size', fontSize)
     } catch (error) {
       console.error('[ERROR] Failed to apply styles:', error)
     }
