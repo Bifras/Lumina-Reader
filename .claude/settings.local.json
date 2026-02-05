@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run lint)",
+      "Bash(npm test:*)",
+      "Bash(del:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run electron:dev:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(node:*)",
+      "Bash(npx electron .)",
+      "Bash(npx electron:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm --version)",
+      "Bash(ls:*)",
+      "mcp__web-reader__webReader"
+    ]
+  }
+}
