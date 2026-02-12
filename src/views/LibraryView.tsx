@@ -157,30 +157,24 @@ const LibraryView = memo(function LibraryView({
               )}
               {onRegenerateCovers && library.some(b => !b.cover) && (
                 <button onClick={onRegenerateCovers} className="secondary-button" title="Rigenera copertine mancanti">
-                  <ImageIcon size={18} style={{ marginRight: '6px' }} /> Ripara Copertine
+                  <ImageIcon size={18} /> Ripara Copertine
                 </button>
               )}
               {library.length > 0 && (
                 <label htmlFor="lib-upload" className="primary-button">
-                  <Plus size={20} style={{ marginRight: '8px' }} /> Aggiungi Libro
+                  <Plus size={18} /> Aggiungi Libro
                 </label>
               )}
             </div>
-            <input
-              type="file"
-              id="lib-upload"
-              accept=".epub"
-              hidden
-              onChange={handleFileInputChange}
-            />
-            <input
-              type="file"
-              id="lib-upload-empty"
-              accept=".epub"
-              hidden
-              onChange={handleFileInputChange}
-            />
           </div>
+
+          <input
+            type="file"
+            id="lib-upload"
+            accept=".epub"
+            hidden
+            onChange={handleFileInputChange}
+          />
 
           {filteredLibrary.length === 0 ? (
             <div className="empty-state">
@@ -193,8 +187,8 @@ const LibraryView = memo(function LibraryView({
                 </p>
               </div>
               {library.length === 0 && (
-                <label htmlFor="lib-upload-empty" className="primary-button" style={{ marginTop: '2rem' }}>
-                  <Plus size={20} style={{ marginRight: '8px' }} /> Aggiungi Libro
+                <label htmlFor="lib-upload" className="primary-button" style={{ marginTop: '2rem' }}>
+                  <Plus size={18} /> Aggiungi Libro
                 </label>
               )}
             </div>

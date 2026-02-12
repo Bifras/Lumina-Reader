@@ -1,7 +1,7 @@
 import { memo, MouseEventHandler, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
-import { BookOpen, Trash2 } from 'lucide-react'
+import { BookOpen, Trash2, Clock } from 'lucide-react'
 import type { Book } from '../types'
 
 interface BookCardProps {
@@ -57,7 +57,7 @@ const BookCard = memo(function BookCard({ book, onClick, onDelete }: BookCardPro
         <h4>{book.title}</h4>
         <p>{book.author}</p>
         <div className="progress-label">
-          <span style={{ fontSize: '12px' }}>⏱</span>
+          <Clock size={12} />
           {book.progress || 0}% letto
         </div>
       </div>
