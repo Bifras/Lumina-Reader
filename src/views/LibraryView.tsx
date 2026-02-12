@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback, useState } from 'react'
+import { memo, useMemo, useCallback, useState, useEffect } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
@@ -48,6 +48,11 @@ const LibraryView = memo(function LibraryView({
     return reading || library.reduce((latest, b) => 
       b.addedAt > latest.addedAt ? b : latest, library[0])
   }, [library])
+
+  // Reset hero cover error when the hero book changes
+  useEffect(() => {
+    setHeroCoverError(false)
+  }, [heroBook?.id])
 
   // Memoized callbacks
   const handleFileDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -103,7 +108,6 @@ const LibraryView = memo(function LibraryView({
                 <div
                   className="hero-ambient-img"
                   style={{ backgroundImage: `url(${heroBook.cover})` }}
-                  onError={() => setHeroCoverError(true)}
                 />
                 <div className="hero-ambient-overlay" />
               </div>
@@ -198,8 +202,8 @@ const LibraryView = memo(function LibraryView({
                 <BookCard
                   key={book.id}
                   book={book}
-                  onClick={() => onLoadBook(null, book.cfi, book.id)}
-                  onDelete={() => onDeleteBook(book.id)}
+                  onLoadBook={onLoadBook}
+                  onDeleteBook={onDeleteBook}
                 />
               ))}
             </div>

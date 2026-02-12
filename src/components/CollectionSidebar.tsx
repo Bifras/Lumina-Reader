@@ -276,10 +276,11 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
       const customCollections = getCustomCollections()
       const allCollections = [...smartCollections, ...customCollections]
 
+      const entries = await Promise.all(
+        allCollections.map(async (col) => [col.id, await getBookCount(col.id, library)] as const)
+      )
       const counts: Record<string, number> = {}
-      for (const collection of allCollections) {
-        counts[collection.id] = await getBookCount(collection.id, library)
-      }
+      entries.forEach(([id, count]) => { counts[id] = count })
       setBookCounts(counts)
     }
 
@@ -469,7 +470,9 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
 
         {!isCollapsed && customCollections.length === 0 && !isCreating && (
           <div className="collection-empty">
-            <div className="collection-empty__icon">📚</div>
+            <div className="collection-empty__icon">
+              <Library size={28} strokeWidth={1.5} />
+            </div>
             <p>Nessuna collezione personalizzata</p>
             <p className="collection-empty__hint">
               Trascina per riordinare

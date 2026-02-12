@@ -1,0 +1,88 @@
+/* ============================================
+   SHARED BUTTON STYLES
+   ============================================ */
+
+/* --- Primary Button --- */
+
+.primary-button {
+  background: var(--text-main);
+  color: #fff !important;
+  padding: 0.8rem 1.8rem;
+  border-radius: 50px;
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.primary-button:hover {
+  background: #000;
+  transform: translateY(-3px);
+  box-shadow: 0 15px 30px -8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .primary-button {
+  background: #fff;
+  color: #000 !important;
+}
+
+[data-theme="dark"] .primary-button:hover {
+  background: #e0e0e0;
+}
+
+/* --- Secondary Button --- */
+
+.secondary-button {
+  background: transparent;
+  color: var(--text-main) !important;
+  padding: 0.8rem 1.8rem;
+  border-radius: 50px;
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  background: var(--surface-hover);
+  border-color: var(--text-dim);
+  transform: translateY(-2px);
+}
+
+[data-theme="dark"] .secondary-button {
+  border-color: #444;
+  color: #e0e0e0 !important;
+}
+
+[data-theme="dark"] .secondary-button:hover {
+  background: #2a2a2a;
+  border-color: #666;
+}
+
+/* --- Responsive Button Adjustments --- */
+
+@media (max-width: 480px) {
+  .primary-button,
+  .secondary-button,
+  .reset-btn {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.65rem;
+  }
+}

@@ -1,4 +1,4 @@
-import { memo, MouseEventHandler, useState } from 'react'
+import { memo, useCallback, MouseEventHandler, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { BookOpen, Trash2, Clock } from 'lucide-react'
@@ -6,21 +6,25 @@ import type { Book } from '../types'
 
 interface BookCardProps {
   book: Book
-  onClick: () => void
-  onDelete: () => void
+  onLoadBook: (file: null, cfi?: string, id?: string) => void
+  onDeleteBook: (id: string) => void
 }
 
-const BookCard = memo(function BookCard({ book, onClick, onDelete }: BookCardProps) {
+const BookCard = memo(function BookCard({ book, onLoadBook, onDeleteBook }: BookCardProps) {
   const [coverError, setCoverError] = useState(false)
 
-  const handleDelete: MouseEventHandler<HTMLButtonElement> = (e) => {
-    e.stopPropagation()
-    onDelete()
-  }
+  const handleClick = useCallback(() => {
+    onLoadBook(null, book.cfi, book.id)
+  }, [onLoadBook, book.cfi, book.id])
 
-  const handleCoverError = () => {
+  const handleDelete: MouseEventHandler<HTMLButtonElement> = useCallback((e) => {
+    e.stopPropagation()
+    onDeleteBook(book.id)
+  }, [onDeleteBook, book.id])
+
+  const handleCoverError = useCallback(() => {
     setCoverError(true)
-  }
+  }, [])
 
   return (
     <motion.div
@@ -29,7 +33,7 @@ const BookCard = memo(function BookCard({ book, onClick, onDelete }: BookCardPro
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       whileHover={{ y: -5 }}
-      onClick={onClick}
+      onClick={handleClick}
     >
       <div className="book-cover-wrapper">
         {book.cover && !coverError ? (
