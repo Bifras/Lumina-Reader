@@ -1,92 +1,72 @@
 import { test, expect } from '@playwright/test'
+import path from 'path'
 
-/**
- * E2E Tests for Reader View
- *
- * Note: These tests require a book to be loaded first.
- * In a real test environment, you would:
- * 1. Seed the database with test books
- * 2. Navigate to the reader view
- * 3. Test reader functionality
- */
+const TEST_EPUB = path.join(process.cwd(), 'test.epub')
+
+async function openReader(page) {
+  await page.goto('/')
+  await page.setInputFiles('#lib-upload', TEST_EPUB)
+  await page.waitForSelector('text=aggiunto', { timeout: 15000 })
+  await expect(page.locator('.book-card').first()).toBeVisible({ timeout: 30000 })
+  await page.getByRole('heading', { name: 'Test Book' }).first().click()
+  await page.waitForTimeout(300)
+
+  if (await page.locator('#viewer').count() === 0) {
+    await page.locator('.book-card').last().click({ position: { x: 20, y: 20 } })
+  }
+
+  await expect(page.locator('#viewer')).toBeVisible({ timeout: 30000 })
+}
+
+async function ensureToolbarVisible(page) {
+  await page.mouse.move(80, 80)
+  await page.waitForTimeout(120)
+}
 
 test.describe('Reader View', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+  test('should open reader and expose core controls', async ({ page }) => {
+    await openReader(page)
+    await ensureToolbarVisible(page)
+
+    await expect(page.getByTitle('Torna alla Libreria')).toBeVisible()
+    await expect(page.getByTitle('Indice')).toBeVisible()
+    await expect(page.getByTitle('Segnalibri')).toBeVisible()
+    await expect(page.getByTitle('Cerca')).toBeVisible()
+    await expect(page.getByTitle('Impostazioni')).toBeVisible()
+
+    await page.keyboard.press('ArrowRight')
+    await page.waitForTimeout(250)
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.locator('#viewer')).toBeVisible()
   })
 
-  test('should display reader when book is opened', async ({ page }) => {
-    // This test requires a book to be present
-    // For now, just verify navigation works
-    await expect(page.locator('body')).toBeVisible()
-  })
+  test('should adjust settings and toggle reader panels', async ({ page }) => {
+    await openReader(page)
+    await ensureToolbarVisible(page)
 
-  test('should have navigation controls', async () => {
-    // When a book is open, these controls should be visible:
-    // - Previous/Next page buttons
-    // - Table of contents toggle
-    // - Settings button
-    // - Return to library button
-  })
+    await page.getByTitle('Impostazioni').click()
+    await expect(page.locator('.settings-panel')).toBeVisible()
+    await page.getByTitle('Scuro').click()
+    await page.locator('.font-controls button').last().click()
+    await page.locator('.font-controls button').first().click()
+    await page.locator('.settings-panel .settings-header button').click()
+    await expect(page.locator('.settings-panel')).toBeHidden()
 
-  test('should navigate pages', async () => {
-    // Test next page
-    // Test previous page
-    // Test CFI navigation
-  })
+    await ensureToolbarVisible(page)
+    await page.getByTitle('Segnalibri').click()
+    await expect(page.locator('.side-panel .settings-header h4')).toContainText('Segnalibri')
+    await page.locator('.side-panel .settings-header button').click()
 
-  test('should display table of contents', async () => {
-    // Click TOC button
-    // Verify chapters are listed
-    // Click chapter to navigate
-  })
+    await ensureToolbarVisible(page)
+    await page.getByTitle('Cerca').click()
+    await expect(page.locator('.search-input')).toBeVisible()
+    await page.locator('.search-input').fill('il')
+    await page.locator('.search-input').press('Enter')
+    await expect(page.locator('.search-results')).toBeVisible()
+    await page.locator('.side-panel .settings-header button').click()
 
-  test('should create and display bookmarks', async () => {
-    // Add a bookmark
-    // Verify it appears in bookmarks panel
-    // Navigate to bookmark
-  })
-
-  test('should create and display highlights', async () => {
-    // Select text
-    // Verify highlight popup appears
-    // Create highlight
-    // Verify highlight is saved
-  })
-
-  test('should adjust reading settings', async () => {
-    // Change font
-    // Change font size
-    // Change theme
-    // Verify changes persist
-  })
-
-  test('should track reading progress', async () => {
-    // Navigate to different pages
-    // Verify progress is updated
-    // Close and reopen book
-    // Verify position is restored
-  })
-})
-
-test.describe('Reader Navigation', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-  })
-
-  test('should go to next page', async () => {
-    // Click next button or use keyboard shortcut
-    // Verify page changed
-  })
-
-  test('should go to previous page', async () => {
-    // Click previous button or use keyboard shortcut
-    // Verify page changed
-  })
-
-  test('should jump to chapter from TOC', async () => {
-    // Open TOC
-    // Click chapter
-    // Verify navigation to correct location
+    await ensureToolbarVisible(page)
+    await page.getByTitle('Torna alla Libreria').click()
+    await expect(page.getByRole('heading', { name: 'Libreria', level: 2 })).toBeVisible({ timeout: 30000 })
   })
 })
