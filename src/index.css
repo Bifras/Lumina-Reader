@@ -1,5 +1,17 @@
+/* ===================================================================
+   FONT IMPORTS
+   =================================================================== */
 @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bitter:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 
+/* ===================================================================
+   THEME VARIABLES (Generated from src/config/themes.ts)
+   DO NOT EDIT - Run: npm run generate:themes
+   =================================================================== */
+@import './themes.generated.css';
+
+/* ===================================================================
+   CUSTOM FONTS
+   =================================================================== */
 /* OpenDyslexic font - loaded from CDN (not available on Google Fonts) */
 @font-face {
   font-family: 'OpenDyslexic';
@@ -21,39 +33,33 @@
   font-display: swap;
 }
 
+/* ===================================================================
+   NON-THEME CSS VARIABLES
+   These are theme-independent styles
+   =================================================================== */
 :root {
-  /* Editorial Pro Theme Tokens */
-  --bg-cream: #faf9f6;
-  --bg-paper: #f0eee6;
-  --bg-ivory: #ffffff;
-  --bg-warm: #fcfbf9;
-
   /* Typography */
   --font-display: "Playfair Display", serif;
   --font-body: "Lora", serif;
   --font-ui: "Inter", sans-serif;
 
-  /* Text Colors */
-  --text-main: #1a1a1a;
-  --text-dim: #4a4a4a;
-  --text-soft: #757575;
+  /* Spacing System */
+  --space-unit: 1rem;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
 
-  /* Surfaces */
-  --surface-panel: #ffffff;
-  --surface-card: #ffffff;
-  --surface-hover: rgba(0, 0, 0, 0.04);
-  --border-subtle: rgba(0, 0, 0, 0.06);
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 12px 24px rgba(0,0,0,0.12);
+  --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
 
-  /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.6);
-  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-
-  /* Brand */
-  --accent: #2c2c2c;
-  --accent-warm: #c05d4e;
-
-  /* Highlight Colors */
+  /* Highlight Colors (theme-independent) */
   --highlight-yellow: #ffeb3b;
   --highlight-green: #81c784;
   --highlight-blue: #64b5f6;
@@ -62,72 +68,27 @@
   /* Animation */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --transition-theme: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
-
-  /* Shadows */
-  --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
-[data-theme="dark"] {
-  --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-}
-
-[data-theme="sepia"] {
-  --shadow-premium: 0 25px 50px -12px rgba(91, 70, 54, 0.2);
-}
-
-[data-theme="dark"] {
-  --bg-cream: #121212;
-  --bg-paper: #1a1a1a;
-  --bg-ivory: #1e1e1e;
-  --bg-warm: #161616;
-  --text-main: #e6e6e6;
-  --text-dim: #a0a0a0;
-  --text-soft: #666666;
-
-  --surface-panel: #1e1e1e;
-  --surface-card: #252525;
-  --surface-hover: rgba(255, 255, 255, 0.08);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-
-  --glass-bg: rgba(30, 30, 30, 0.85);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-
-  --accent: #e0e0e0;
-  --accent-warm: #d46a5c;
-}
-
-[data-theme="sepia"] {
-  --bg-cream: #f4ecd8;
-  --bg-paper: #e8dcc5;
-  --bg-ivory: #fcf6e9;
-  --bg-warm: #f1e6d2;
-  --text-main: #5b4636;
-  --text-dim: #8b6b52;
-  --text-soft: #7a6b5a;
-
-  --surface-panel: #fcf6e9;
-  --surface-card: #fdfaf4;
-  --surface-hover: rgba(91, 70, 54, 0.08);
-  --border-subtle: rgba(91, 70, 54, 0.15);
-
-  --glass-bg: rgba(244, 236, 216, 0.85);
-  --glass-border: 1px solid rgba(91, 70, 54, 0.1);
-  --glass-shadow: 0 8px 32px 0 rgba(91, 70, 54, 0.1);
-
-  --accent: #5b4636;
-  --accent-warm: #c05d4e;
-}
-
+/* ===================================================================
+   GLOBAL STYLES
+   =================================================================== */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Prevent white flashes on any element by default */
+  background-color: transparent;
+}
+
+iframe {
+  background-color: transparent !important;
+  border: none !important;
 }
 
 body {
   font-family: var(--font-body);
-  background-color: var(--bg-cream);
+  background-color: var(--bg-cream) !important;
   color: var(--text-main);
   line-height: 1.7;
   font-size: 106.25%;
@@ -138,6 +99,19 @@ body {
   /* Firefox scrollbar support */
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle) transparent;
+}
+
+/* Prevent white flash on initial load - theme-based body backgrounds */
+body[data-theme="dark"] {
+  background-color: #121212 !important;
+}
+
+body[data-theme="sepia"] {
+  background-color: #f4ecd8 !important;
+}
+
+body[data-theme="light"] {
+  background-color: #faf9f6 !important;
 }
 
 h1,
@@ -169,8 +143,8 @@ button {
 
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
   border: var(--glass-border);
   box-shadow: var(--glass-shadow);
   transition: var(--transition-theme);

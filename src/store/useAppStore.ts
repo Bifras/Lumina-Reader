@@ -1,34 +1,16 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { THEMES } from '../config/themes'
+import { FONT_OPTIONS } from '../config/fonts'
 
-// Theme and font constants
-export const THEMES = {
-  light: { name: 'Chiaro', body: { background: '#f9f7f2', color: '#1a1a1a' } },
-  sepia: { name: 'Seppia', body: { background: '#f4ecd8', color: '#5b4636' } },
-  dark: { name: 'Scuro', body: { background: '#121212', color: '#e0e0e0' } }
-} as const
-
+// Re-export theme type for convenience
 export type ThemeName = keyof typeof THEMES
 
-export const FONT_OPTIONS = [
-  {
-    id: 'lora', name: 'Lora', family: 'Lora',
-    desc: 'Raffinato editoriale. Progettato per offrire un feeling classico ma moderno, perfetto per lunghe sessioni di lettura.'
-  },
-  {
-    id: 'atkinson', name: 'Atkinson Hyperlegible', family: 'Atkinson Hyperlegible',
-    desc: 'Progettato dal Braille Institute. Massima leggibilità e distinzione delle lettere, ideale per chi ha affaticamento visivo.'
-  },
-  {
-    id: 'bitter', name: 'Bitter', family: 'Bitter',
-    desc: 'Slab Serif contemporaneo. Progettato specificamente per la lettura confortevole su schermi digitali con ottimo bilanciamento visivo.'
-  },
-  {
-    id: 'dyslexic', name: 'OpenDyslexic', family: 'OpenDyslexic',
-    desc: 'Con base pesante. Aiuta a prevenire la rotazione o il salto delle lettere, specifico per lettori con dislessia.'
-  }
-] as const
+// Legacy export for backward compatibility
+export { THEMES } from '../config/themes'
 
+// Font options now imported from config/fonts.ts (single source of truth)
+export { FONT_OPTIONS } from '../config/fonts'
 export type FontId = typeof FONT_OPTIONS[number]['id']
 
 interface AppStoreState {
@@ -36,6 +18,7 @@ interface AppStoreState {
   currentTheme: ThemeName
   fontSize: number
   readingFont: FontId
+  isTwoPageView: boolean
 
   // UI State
   showSettings: boolean
@@ -47,6 +30,7 @@ interface AppStoreActions {
   setTheme: (theme: ThemeName) => void
   setFontSize: (size: number) => void
   setReadingFont: (font: FontId) => void
+  setTwoPageView: (isTwoPage: boolean) => void
   toggleSettings: () => void
   setShowSettings: (show: boolean) => void
   toggleMenu: () => void
@@ -66,6 +50,7 @@ export const useAppStore = create<AppStore>()(
       currentTheme: 'light',
       fontSize: 100,
       readingFont: 'lora',
+      isTwoPageView: false,
 
       // UI State
       showSettings: false,
@@ -75,6 +60,7 @@ export const useAppStore = create<AppStore>()(
       setTheme: (theme) => set({ currentTheme: theme }),
       setFontSize: (size) => set({ fontSize: size }),
       setReadingFont: (font) => set({ readingFont: font }),
+      setTwoPageView: (isTwoPage) => set({ isTwoPageView: isTwoPage }),
       toggleSettings: () => set((state) => ({ showSettings: !state.showSettings })),
       setShowSettings: (show) => set({ showSettings: show }),
       toggleMenu: () => set((state) => ({ menuVisible: !state.menuVisible })),
@@ -94,7 +80,15 @@ export const useAppStore = create<AppStore>()(
         currentTheme: state.currentTheme,
         fontSize: state.fontSize,
         readingFont: state.readingFont,
+        isTwoPageView: state.isTwoPageView,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Apply theme immediately when store is rehydrated from localStorage
+        // This prevents flash of un-themed content
+        if (state?.currentTheme) {
+          document.documentElement.setAttribute('data-theme', state.currentTheme)
+        }
+      },
     }
   )
 )

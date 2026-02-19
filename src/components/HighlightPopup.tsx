@@ -1,4 +1,3 @@
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 
 interface HighlightColor {
@@ -27,7 +26,7 @@ const HighlightPopup = ({ isVisible, position, onAddHighlight }: HighlightPopupP
     left: position.x,
     top: position.y,
     transform: 'translate(-50%, -100%)',
-    zIndex: 10001
+    zIndex: 'var(--z-popup)'
   }
 
   return (

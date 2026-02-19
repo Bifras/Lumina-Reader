@@ -13,7 +13,12 @@ export interface Book {
   cfi?: string // EPUB CFI (Canonical Fragment Identifier) for current position
   progress: number // Reading progress 0-100
   addedAt: number
+  lastOpened?: number // Timestamp of last read
   isFavorite?: boolean
+  collectionIds?: string[]
+  collection?: string // Primary collection name
+  genre?: string // Book genre/category
+  rating?: number // User rating 0-5 stars
 }
 
 /**
@@ -69,6 +74,7 @@ export interface TOCEntry {
   label: string
   href: string
   subitems?: TOCEntry[]
+  level?: number
 }
 
 /**
@@ -76,14 +82,14 @@ export interface TOCEntry {
  */
 export interface SearchResult {
   cfi: string
-  text: string
-  chapter?: string
+  snippet: string
+  href: string
 }
 
 /**
- * EPUB rendition instance (from epub.js)
+ * Extended rendition type with all methods used
  */
-export interface Rendition {
+export interface ExtendedRendition {
   display(location: string): void
   next(): void
   prev(): void
@@ -91,6 +97,35 @@ export interface Rendition {
   off(eventName: string, handler?: (...args: any[]) => void): void
   themes: {
     font(value: string): void
+    fontSize(value: string): void
+    register(name: string, theme: any): void
+    select(name: string): void
+    override(prop: string, value: string, important: boolean): void
+  }
+  annotations: {
+    add(type: string, cfi: string, options: any, callback: () => void, className: string, styles: { fill: string; 'fill-opacity': string }): void
+    clear(): void
+  }
+  getContents: () => any[]
+  getRange: (range: Range) => string
+  currentLocation: () => { 
+    start: { 
+      cfi: string; 
+      displayed?: { page?: number } 
+    } 
+  }
+}
+
+/**
+ * Simplified rendition type for ReaderView props
+ */
+export interface ReaderViewRenditionType {
+  display(location: string): void
+  next(): void
+  prev(): void
+  themes: {
+    override(prop: string, value: string, important: boolean): void
+    select(name: string): void
     fontSize(value: string): void
   }
 }
@@ -100,12 +135,19 @@ export interface Rendition {
  */
 export interface BookEngine {
   destroyed: boolean
+  spine: any
   locations: {
     generate(count?: number): Promise<void>
     cfiFromPercentage(percent: number): string
+    percentageFromCfi(cfi: string): number
   }
   ready: Promise<void>
   destroy(): void
+  loaded: {
+    metadata: Promise<any>
+    navigation: Promise<any>
+    cover: Promise<any>
+  }
 }
 
 /**
@@ -126,7 +168,7 @@ export interface FontOption {
   id: string
   name: string
   family: string
-  desc: string
+  category: 'serif' | 'sans-serif' | 'accessibility' | 'monospace'
 }
 
 /**

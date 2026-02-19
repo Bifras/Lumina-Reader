@@ -5,18 +5,33 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lumina Reader | Il tuo E-reader Desktop</title>
+  </head>
+  <body>
     <script>
       (function() {
         try {
-          const theme = localStorage.getItem('lumina-theme') || 'light';
+          // Parse Zustand persist store (lumina-reader-preferences)
+          const stored = localStorage.getItem('lumina-reader-preferences');
+          const theme = stored ? JSON.parse(stored)?.state?.currentTheme || 'light' : 'light';
+          
+          // Apply theme to documentElement for CSS cascading
           document.documentElement.setAttribute('data-theme', theme);
+          
+          // Apply immediate background to prevent white flash
+          var bgColors = { light: '#faf9f6', dark: '#121212', sepia: '#f4ecd8' };
+          document.documentElement.style.backgroundColor = bgColors[theme] || bgColors.light;
+          
+          // Also check for library theme
+          const libraryStored = localStorage.getItem('lumina-library-settings');
+          const libraryTheme = libraryStored ? JSON.parse(libraryStored)?.state?.libraryTheme || 'auto' : 'auto';
+          if (libraryTheme !== 'auto') {
+            document.documentElement.setAttribute('data-library-theme', libraryTheme);
+          }
         } catch (e) {
           console.warn('Theme init failed:', e);
         }
       })();
     </script>
-  </head>
-  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

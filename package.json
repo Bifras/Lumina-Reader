@@ -6,8 +6,9 @@
   "author": "Lumina Team",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run generate:themes && vite",
+    "build": "npm run generate:themes && vite build",
+    "generate:themes": "node scripts/generate-themes.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",

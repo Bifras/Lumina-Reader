@@ -25,3 +25,48 @@ dist-ssr
 
 # Skills
 .skills/
+
+# ── Build electron ──────────────────────────────
+dist-electron/
+out/
+build/
+
+# ── Test & Coverage artifacts ───────────────────
+coverage/
+playwright-report/
+test-results/
+test_results/
+test_screenshots/
+screenshots/
+test.epub
+
+# ── Report auto-generati ────────────────────────
+COMPLETE_TEST_REPORT.md
+TEST_REPORT.md
+READER_TEST_REPORT.md
+ERRORS_ENCOUNTERED.md
+FIXES_APPLIED.md
+FIXES_PROGRESS.md
+FIXES_SUMMARY.md
+FINAL_SUMMARY.md
+LOGICAL_ERRORS_ANALYSIS.md
+UI_IMPERFECTIONS.md
+UI_REVIEW.md
+UX_ANALYSIS.md
+DESIGN_SYSTEM.md
+
+# ── Script di debug ─────────────────────────────
+create_test_epub.py
+scripts/electron-debug-session.js
+scripts/open_browser.py
+scripts/screenshot_sidebar.py
+scripts/screenshot_sidebar_win.py
+
+# ── Cartelle AI / IDE locali ────────────────────
+.gemini/
+.kimi/
+.claude/
+
+# ── Varie ───────────────────────────────────────
+telemetry-id
+nul

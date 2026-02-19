@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useCallback, memo } from 'react'
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Library, BookOpen, CheckCircle, Bookmark, Heart,
@@ -118,9 +117,9 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
             {...attributes}
             {...listeners}
             className="collection-item__drag-handle"
-            style={{ cursor: 'grab', opacity: 0.4, display: 'flex', alignItems: 'center' }}
+            style={{ cursor: 'grab', opacity: 0.4, display: 'flex', alignItems: 'center', padding: '4px' }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="9" cy="6" r="1.5"/>
               <circle cx="15" cy="6" r="1.5"/>
               <circle cx="9" cy="12" r="1.5"/>
@@ -131,7 +130,7 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
           </div>
         )}
 
-        <Icon size={isCollapsed ? 22 : 18} className="collection-item__icon" />
+        <Icon size={isCollapsed ? 20 : 18} className="collection-item__icon" />
         {!isCollapsed && <span className="collection-item__name">{collection.name}</span>}
 
         {!isCollapsed && bookCount > 0 && (
@@ -142,12 +141,12 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              handleMenuClick(e.nativeEvent)
+              onMenuToggle(isMenuOpen ? null : collection.id)
             }}
             className="collection-item__menu-btn"
             aria-label="Menu opzioni"
           >
-            <MoreVertical size={14} />
+            <MoreVertical size={16} />
           </button>
         )}
       </motion.div>
@@ -157,22 +156,22 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
           {isMenuOpen && (
             <motion.div
               ref={menuRef}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.95, y: -5 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -5 }}
               className="collection-context-menu"
             >
               <button
                 onClick={() => onEdit(collection)}
                 className="collection-context-menu__item"
               >
-                <Edit2 size={14} /> Rinomina
+                <Edit2 size={14} /> <span>Rinomina</span>
               </button>
               <button
                 onClick={() => onDelete(collection.id)}
                 className="collection-context-menu__item collection-context-menu__item--danger"
               >
-                <Trash2 size={14} /> Elimina
+                <Trash2 size={14} /> <span>Elimina</span>
               </button>
             </motion.div>
           )}
@@ -181,6 +180,7 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
     </div>
   )
 })
+
 
 interface CollectionItemProps {
   collection: Collection
@@ -220,7 +220,7 @@ const CollectionItem = memo(function CollectionItem({
           }
         }}
       >
-        <Icon size={isCollapsed ? 22 : 18} className="collection-item__icon" />
+        <Icon size={isCollapsed ? 20 : 18} className="collection-item__icon" />
         {!isCollapsed && <span className="collection-item__name">{collection.name}</span>}
 
         {!isCollapsed && bookCount > 0 && (
@@ -377,7 +377,27 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
       <div className="collection-sidebar-header">
         {!isCollapsed && (
           <div>
-            <h2 className="collection-sidebar-title">Collezioni</h2>
+            <div className="collection-sidebar-title-wrapper" title="Collezioni">
+              <svg
+                className="collections-icon" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="1.5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 11h18M3 21h18" />
+                <rect x="5" y="3" width="3" height="8" rx="0.5" />
+                <path d="M10 11l1.2-5.2a0.6 0.6 0 0 1 0.6-0.8h1.4a0.6 0.6 0 0 1 0.6 0.8l-1.2 5.2" />
+                <rect x="16" y="5" width="3" height="6" rx="0.5" />
+                <path d="M7.5 21l-1.8-6.3a0.6 0.6 0 0 0-0.6-0.7H3.7a0.6 0.6 0 0 0-0.6 0.7L4.9 21" />
+                <rect x="9.5" y="13" width="3" height="8" rx="0.5" />
+                <rect x="14.5" y="18" width="6.5" height="3" rx="0.5" />
+              </svg>
+              <span className="collection-sidebar-label">Collezioni</span>
+            </div>
             <p className="collection-sidebar-shortcuts">
               <kbd>⌘</kbd><kbd>1-9</kbd> per navigare
             </p>
@@ -409,10 +429,12 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
             <h3 className="collection-section-title">Mie Collezioni</h3>
             <button
               onClick={() => setIsCreating(true)}
-              className="collection-add-btn"
-              title="Nuova collezione"
+              className="collection-add-btn collection-add-btn--enhanced"
+              title="Crea nuova collezione"
+              aria-label="Crea nuova collezione"
             >
               <Plus size={16} />
+              <span className="collection-add-btn__label">Nuova</span>
             </button>
           </div>
         )}
@@ -424,7 +446,7 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
               className="collection-item collection-item--collapsed"
               title="Nuova collezione"
             >
-              <Plus size={22} className="collection-item__icon" />
+              <Plus size={20} className="collection-item__icon" />
             </button>
           </div>
         )}

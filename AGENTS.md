@@ -1,92 +1,64 @@
-# Lumina Reader - Agent Development Guide
+# AGENTS.md - Lumina Reader
 
 ## Build, Lint, and Test Commands
 
 ```bash
-# Development (Vite dev server on localhost:5173)
-npm run dev
+# Development
+npm run dev              # Vite dev server on localhost:5173
+npm run build            # Production build (creates /dist)
+npm run lint             # ESLint check
 
-# Build for production (creates /dist folder)
-npm run build
-
-# Lint code
-npm run lint
-
-# Unit tests (Vitest)
-npm test                    # Run all tests
+# Unit Tests (Vitest)
+npm test                 # Run all tests
 npm test -- src/db.test.ts  # Run single test file
-npm run test:ui             # Run with UI
-npm run test:coverage       # Run with coverage
+npm test -- -t "test name"  # Run single test by name
+npm run test:ui          # Run with UI
+npm run test:coverage    # Run with coverage
 
-# E2E tests (Playwright)
-npm run test:e2e            # Run E2E tests
-npm run test:e2e:ui         # Run with UI
-npm run test:e2e:debug      # Debug mode
+# E2E Tests (Playwright)
+npm run test:e2e         # Run E2E tests
+npm run test:e2e:ui      # Run with UI
+npm run test:e2e:debug   # Debug mode
 
 # Electron
-npm run electron:dev        # Vite + Electron
-npm run electron:build      # Build Electron app
+npm run electron:dev     # Vite + Electron
+npm run electron:build   # Build Electron app
 ```
-
----
-
-## Project Architecture
-
-**Electron + React + TypeScript** desktop application for reading EPUB files.
-
-### Tech Stack
-- **Frontend**: React 19, Vite, Framer Motion, Zustand (with persist middleware)
-- **Backend**: Electron main process with IPC handlers
-- **Data**: IndexedDB (localforage) for metadata, filesystem for EPUB files
-- **EPUB Rendering**: epubjs library with custom themes/fonts
-- **Testing**: Vitest (unit) + Playwright (E2E)
-
-### File Structure
-```
-src/
-├── App.tsx              # Main React component
-├── main.tsx             # React entry point
-├── db.ts                # Data access layer (localforage + IPC)
-├── components/          # Reusable components (BookCard, Toast, etc.)
-├── views/               # Page-level (LibraryView, ReaderView)
-├── hooks/               # Custom hooks (useBookLoader, useHighlights)
-├── store/               # Zustand stores (useAppStore, useCollectionStore, etc.)
-├── types/               # TypeScript definitions
-└── config/fonts.ts      # Font configuration
-electron/
-├── main.cjs             # Electron main process
-└── preload.cjs          # Context bridge for IPC
-```
-
----
 
 ## Code Style Guidelines
 
 ### TypeScript
-- Use strict TypeScript with explicit types for function parameters and returns
+- Use strict TypeScript with explicit types
 - Define interfaces for component props and store states
 - Use `type` for unions, `interface` for object shapes
-- Avoid `any` - use `unknown` with type guards when necessary
+- Avoid `any` - use `unknown` with type guards
 
-### Imports
+### Imports Order
 ```typescript
-// Order: External libs → Internal modules → Types → CSS
-import { useState, useEffect } from 'react'
+// 1. React/External libs
+import { useState } from 'react'
 import { motion } from 'framer-motion'
+
+// 2. Internal modules  
 import { useAppStore } from './store'
+import { dbService } from './db'
+
+// 3. Types
 import type { Book, Bookmark } from './types'
+
+// 4. CSS (last)
 import './App.css'
 ```
 
 ### Naming Conventions
-- **Components**: PascalCase (e.g., `BookCard`, `LibraryView`)
-- **Functions/Variables**: camelCase (e.g., `loadBook`, `activeBook`)
-- **Constants**: UPPER_SNAKE_CASE (e.g., `MAX_FILE_SIZE`, `THEMES`)
-- **Types/Interfaces**: PascalCase with descriptive names (e.g., `BookCardProps`, `AppStoreState`)
-- **Event Handlers**: `handle` prefix (e.g., `handleFileUpload`, `handleDeleteBook`)
-- **IPC Handlers**: kebab-case in main, camelCase in preload (e.g., `delete-book-file` → `deleteBookFile`)
+- **Components**: PascalCase (`BookCard`, `LibraryView`)
+- **Functions/Variables**: camelCase (`loadBook`, `activeBook`)
+- **Constants**: UPPER_SNAKE_CASE (`MAX_FILE_SIZE`, `THEMES`)
+- **Types/Interfaces**: PascalCase (`BookCardProps`, `AppStoreState`)
+- **Event Handlers**: `handle` prefix (`handleFileUpload`, `handleDeleteBook`)
+- **IPC Handlers**: kebab-case in main, camelCase in preload
 
-### Component Structure
+### Component Pattern
 ```typescript
 interface BookCardProps {
   book: Book
@@ -141,14 +113,14 @@ export const useAppStore = create<AppStore>()(
 ```
 
 ### Error Handling
-- Always wrap async operations in try/catch
-- Log errors with descriptive context: `console.error("[PREFIX] Message:", error)`
+- Wrap async operations in try/catch
+- Log errors: `console.error("[PREFIX] Message:", error)`
 - Use `addToast()` for user-facing messages
-- In IPC handlers, throw errors to propagate to renderer
+- Throw errors in IPC handlers to propagate to renderer
 
 ### IPC Communication (Electron)
 ```typescript
-// Always check electronAPI exists (graceful in browser dev mode)
+// Always check electronAPI exists (browser dev mode)
 if (window.electronAPI?.saveBookFile) {
   await window.electronAPI.saveBookFile(id, buffer)
 }
@@ -169,12 +141,33 @@ if (window.electronAPI?.saveBookFile) {
 - Use `motion` component: `<motion.div>`, `<motion.button>`
 - Spring transitions: `transition={{ type: 'spring', damping: 25, stiffness: 200 }}`
 
-### ESLint Rules
-- `@typescript-eslint/no-unused-vars`: Allows uppercase regex pattern for constants
-- `@typescript-eslint/no-explicit-any`: 'warn'
-- Test files have relaxed rules
+## Project Architecture
 
----
+**Electron + React + TypeScript** desktop application for reading EPUB files.
+
+### Tech Stack
+- **Frontend**: React 19, Vite, Framer Motion, Zustand
+- **Backend**: Electron main process with IPC handlers
+- **Data**: IndexedDB (localforage) for metadata, filesystem for EPUB files
+- **EPUB Rendering**: epubjs library with custom themes/fonts
+- **Testing**: Vitest (unit) + Playwright (E2E)
+
+### File Structure
+```
+src/
+├── App.tsx              # Main React component
+├── main.tsx             # React entry point
+├── db.ts                # Data access layer
+├── components/          # Reusable components
+├── views/               # Page-level (LibraryView, ReaderView)
+├── hooks/               # Custom hooks
+├── store/               # Zustand stores
+├── types/               # TypeScript definitions
+└── config/              # Configuration files
+electron/
+├── main.cjs             # Electron main process
+└── preload.cjs          # Context bridge
+```
 
 ## Critical Gotchas
 
@@ -186,17 +179,15 @@ if (window.electronAPI?.saveBookFile) {
 
 4. **EPUB Memory**: Always destroy previous book engine before loading new books
 
-5. **Viewer Ref**: Check `viewerRef.current` exists before rendering EPUB. May be null during initial render.
+5. **Viewer Ref**: Check `viewerRef.current` exists before rendering EPUB
 
-6. **Font Loading**: Applied via epub.js themes API + CSS injection with `!important`
-
----
-
-## Testing
-
-**118 unit tests** configured with Vitest + Playwright E2E.
-
-- Mock `window.electronAPI` for IPC testing
-- Mock localforage for IndexedDB testing
-- Zustand stores tested with initial states
-- E2E tests run against dev server (web mode)
+6. **EPUB.js Config**: Use minimal configuration for book.renderTo(). Avoid `snap`, `spread`, `minSpreadWidth` options that cause navigation issues:
+   ```typescript
+   book.renderTo(viewerRef.current, {
+     width: '100%',
+     height: '100%',
+     flow: 'paginated',
+     manager: 'default',
+     allowScriptedContent: false
+   })
+   ```

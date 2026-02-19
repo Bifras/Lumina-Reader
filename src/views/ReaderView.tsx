@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeft,
@@ -11,15 +10,14 @@ import {
   Bookmark,
   Search,
   ChevronUp,
-  Type,
   Headphones,
   Maximize,
   Quote,
   Minimize
 } from 'lucide-react'
 import HighlightPopup from '../components/HighlightPopup'
-import { FONT_OPTIONS, type FontOption as ConfigFontOption } from '../config/fonts'
-import type { Book, Bookmark as BookmarkType, TOCEntry, Theme } from '../types'
+import { FONT_OPTIONS } from '../config/fonts'
+import type { Bookmark as BookmarkType, TOCEntry, Theme } from '../types'
 
 const THEMES: Record<string, Theme> = {
   light: { name: 'Chiaro', body: { background: '#f9f7f2', color: '#1a1a1a' } },
@@ -53,6 +51,7 @@ interface ReaderViewProps {
   currentTheme: string
   fontSize: number
   readingFont: string
+  readingProgress: number
   showHighlightPopup: boolean
   highlightPosition: { x: number; y: number }
   onAddHighlight: (color: string) => void
@@ -65,9 +64,10 @@ interface ReaderViewProps {
   onReturnToLibrary: () => void
   onThemeChange: (theme: string) => void
   onFontSizeChange: (delta: number) => void
-  onFontChange: (fontId: string) => void
+  onReadingFontChange: (fontId: string) => void
   setShowHighlightPopup: (show: boolean) => void
   loadingStep: string | null
+  pageInfo: { current: number; total: number } | null
 }
 
 const ReaderView = ({
@@ -80,6 +80,7 @@ const ReaderView = ({
   currentTheme,
   fontSize,
   readingFont,
+  readingProgress,
   showHighlightPopup,
   highlightPosition,
   onAddHighlight,
@@ -92,9 +93,9 @@ const ReaderView = ({
   onReturnToLibrary,
   onThemeChange,
   onFontSizeChange,
-  onFontChange,
-  _setShowHighlightPopup,
-  loadingStep
+  onReadingFontChange,
+  loadingStep,
+  pageInfo
 }: ReaderViewProps) => {
   const [showSettings, setShowSettings] = useState(false)
   const [showTOC, setShowTOC] = useState(false)
@@ -104,34 +105,76 @@ const ReaderView = ({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [menuVisible, setMenuVisible] = useState(true)
   const [showFontPanel, setShowFontPanel] = useState(false)
-  const [showQuickTypography, setShowQuickTypography] = useState(false)
   const [zenMode, setZenMode] = useState(false)
   const [showQuoteGenerator, setShowQuoteGenerator] = useState(false)
+  const [toolbarVisible, setToolbarVisible] = useState(true)
+  const toolbarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Determine if any panel is open
+  const anyPanelOpen = showTOC || showBookmarks || showSearch || showSettings
+
+  // Close all panels helper
+  const closeAllPanels = useCallback(() => {
+    setShowTOC(false)
+    setShowBookmarks(false)
+    setShowSearch(false)
+    setShowSettings(false)
+  }, [])
+
+  // Toolbar auto-hide: show on mouse move, hide after 3s inactivity
+  useEffect(() => {
+    if (zenMode) return
+
+    const resetTimer = () => {
+      setToolbarVisible(true)
+      if (toolbarTimerRef.current) clearTimeout(toolbarTimerRef.current)
+      if (!anyPanelOpen) {
+        toolbarTimerRef.current = setTimeout(() => setToolbarVisible(false), 3000)
+      }
+    }
+
+    // Show toolbar immediately, start hide timer
+    resetTimer()
+
+    window.addEventListener('mousemove', resetTimer)
+    window.addEventListener('mousedown', resetTimer)
+    window.addEventListener('keydown', resetTimer)
+
+    return () => {
+      window.removeEventListener('mousemove', resetTimer)
+      window.removeEventListener('mousedown', resetTimer)
+      window.removeEventListener('keydown', resetTimer)
+      if (toolbarTimerRef.current) clearTimeout(toolbarTimerRef.current)
+    }
+  }, [zenMode, anyPanelOpen])
+
+  // Note: toolbar stays visible when anyPanelOpen because the timer
+  // only starts when !anyPanelOpen (see resetTimer above)
 
   // Keyboard navigation - use ref to avoid re-attaching listeners when callbacks change
   const onPrevPageRef = useRef(onPrevPage)
   const onNextPageRef = useRef(onNextPage)
-  
+
   // Update refs when callbacks change
   useEffect(() => {
     onPrevPageRef.current = onPrevPage
     onNextPageRef.current = onNextPage
   }, [onPrevPage, onNextPage])
-  
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return
       }
-      
+
       // ESC to exit zen mode
       if (e.key === 'Escape' && zenMode) {
         e.preventDefault()
         setZenMode(false)
         return
       }
-      
+
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
         onPrevPageRef.current()
@@ -152,33 +195,49 @@ const ReaderView = ({
     const results: SearchResult[] = []
     const searchLower = searchQuery.toLowerCase()
 
-    const searchPromises = (book.spine as unknown as { spineItems: Array<{ cfiBase: string; href: string; load: (loadBook: import('epubjs').Book) => Promise<{ body?: { textContent: string } }>; unload: () => void }> }).spineItems.map(async (item) => {
-      try {
-        const doc = await item.load(book)
-        if (!doc || !doc.body) return
+    try {
+      // Get all sections from the book's spine
+      const sections = (book as any).spine?.items || (book as any).spine?.spineItems || []
 
-        const text = doc.body.textContent
-        if (text && text.toLowerCase().includes(searchLower)) {
-          const index = text.toLowerCase().indexOf(searchLower)
-          const snippet = text.substring(
-            Math.max(0, index - 50),
-            Math.min(text.length, index + searchLower.length + 50)
-          )
-          results.push({
-            cfi: item.cfiBase,
-            snippet: '...' + snippet + '...',
-            href: item.href
-          })
-        }
-        item.unload()
-      } catch (e) {
-        console.log('[WARN] Search error in item:', (e as Error).message)
+      if (!sections || sections.length === 0) {
+        console.warn('[WARN] No spine sections found for search')
+        return
       }
-    })
 
-    await Promise.all(searchPromises)
-    results.sort((a, b) => a.cfi.localeCompare(b.cfi))
-    setSearchResults(results)
+      const searchPromises = sections.map(async (item: any) => {
+        try {
+          // Load the section content
+          const doc = await item.load(book)
+          if (!doc || !doc.body) {
+            item.unload?.()
+            return
+          }
+
+          const text = doc.body.textContent || ''
+          if (text.toLowerCase().includes(searchLower)) {
+            const index = text.toLowerCase().indexOf(searchLower)
+            const snippet = text.substring(
+              Math.max(0, index - 50),
+              Math.min(text.length, index + searchLower.length + 50)
+            )
+            results.push({
+              cfi: item.cfiBase || `epubcfi(/6/${item.idref})`,
+              snippet: '...' + snippet + '...',
+              href: item.href || ''
+            })
+          }
+          item.unload?.()
+        } catch (e) {
+          console.log('[WARN] Search error in item:', (e as Error).message)
+        }
+      })
+
+      await Promise.all(searchPromises)
+      results.sort((a, b) => a.cfi.localeCompare(b.cfi))
+      setSearchResults(results)
+    } catch (e) {
+      console.error('[ERROR] Search failed:', e)
+    }
   }, [book, searchQuery])
 
   const goToSearchResult = (cfi: string) => {
@@ -189,7 +248,7 @@ const ReaderView = ({
   }
 
   const handleFontSelect = (fontId: string) => {
-    onFontChange(fontId)
+    onReadingFontChange(fontId)
     // Apply font immediately via rendition
     if (rendition) {
       const font = FONT_OPTIONS.find(f => f.id === fontId)?.family || 'Lora'
@@ -239,28 +298,28 @@ const ReaderView = ({
         )}
       </AnimatePresence>
 
-      {/* Vertical Toolbar - Right Side - Organized by UX Logic */}
+      {/* Vertical Toolbar - Right Side - Auto-hide */}
       <AnimatePresence>
-        {menuVisible && !zenMode && (
+        {menuVisible && !zenMode && toolbarVisible && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             className="vertical-toolbar"
             role="toolbar"
             aria-label="Controlli di lettura"
           >
             {/* TOP: Navigation & Content */}
             <div className="toolbar-group" role="group" aria-label="Navigazione">
-              <button 
-                className="toolbar-btn" 
-                onClick={onReturnToLibrary} 
+              <button
+                className="toolbar-btn"
+                onClick={onReturnToLibrary}
                 title="Torna alla Libreria"
                 aria-label="Torna alla libreria"
               >
                 <BookOpen size={18} aria-hidden="true" />
               </button>
-              
               <button
                 className={`toolbar-btn ${showTOC ? 'active' : ''}`}
                 onClick={() => {
@@ -268,7 +327,6 @@ const ReaderView = ({
                   setShowBookmarks(false)
                   setShowSearch(false)
                   setShowSettings(false)
-                  setShowQuickTypography(false)
                 }}
                 title="Indice"
                 aria-label="Mostra indice"
@@ -282,23 +340,6 @@ const ReaderView = ({
 
             {/* CENTER: Reading Tools */}
             <div className="toolbar-group" role="group" aria-label="Strumenti di lettura">
-              {/* Quick Typography */}
-              <button
-                className={`toolbar-btn ${showQuickTypography ? 'active' : ''}`}
-                onClick={() => {
-                  setShowQuickTypography(!showQuickTypography)
-                  setShowTOC(false)
-                  setShowBookmarks(false)
-                  setShowSearch(false)
-                  setShowSettings(false)
-                }}
-                title="Tipografia"
-                aria-label="Cambia tipografia"
-                aria-pressed={showQuickTypography}
-              >
-                <Type size={18} aria-hidden="true" />
-              </button>
-
               <button
                 className={`toolbar-btn ${showBookmarks ? 'active' : ''}`}
                 onClick={() => {
@@ -306,7 +347,6 @@ const ReaderView = ({
                   setShowTOC(false)
                   setShowSearch(false)
                   setShowSettings(false)
-                  setShowQuickTypography(false)
                 }}
                 title="Segnalibri"
                 aria-label="Mostra segnalibri"
@@ -322,7 +362,6 @@ const ReaderView = ({
                   setShowTOC(false)
                   setShowBookmarks(false)
                   setShowSettings(false)
-                  setShowQuickTypography(false)
                 }}
                 title="Cerca"
                 aria-label="Cerca nel libro"
@@ -331,12 +370,9 @@ const ReaderView = ({
                 <Search size={18} aria-hidden="true" />
               </button>
 
-              {/* Quote Generator */}
               <button
                 className={`toolbar-btn ${showQuoteGenerator ? 'active' : ''}`}
-                onClick={() => {
-                  setShowQuoteGenerator(!showQuoteGenerator)
-                }}
+                onClick={() => setShowQuoteGenerator(!showQuoteGenerator)}
                 title="Crea citazione"
                 aria-label="Genera citazione"
                 aria-pressed={showQuoteGenerator}
@@ -344,11 +380,9 @@ const ReaderView = ({
                 <Quote size={18} aria-hidden="true" />
               </button>
 
-              {/* Text to Speech */}
               <button
                 className="toolbar-btn"
                 onClick={() => {
-                  // TTS functionality
                   const utterance = new SpeechSynthesisUtterance()
                   utterance.lang = 'it-IT'
                   utterance.rate = 1
@@ -365,7 +399,6 @@ const ReaderView = ({
 
             {/* BOTTOM: View & System */}
             <div className="toolbar-group" role="group" aria-label="Visualizzazione">
-              {/* Zen Mode */}
               <button
                 className={`toolbar-btn ${zenMode ? 'active' : ''}`}
                 onClick={() => setZenMode(true)}
@@ -382,7 +415,6 @@ const ReaderView = ({
                   setShowTOC(false)
                   setShowBookmarks(false)
                   setShowSearch(false)
-                  setShowQuickTypography(false)
                 }}
                 title="Impostazioni"
                 aria-label="Impostazioni di lettura"
@@ -396,17 +428,17 @@ const ReaderView = ({
 
             {/* Page Navigation */}
             <div className="toolbar-group" role="group" aria-label="Navigazione pagina">
-              <button 
-                className="toolbar-btn" 
-                onClick={onPrevPage} 
+              <button
+                className="toolbar-btn"
+                onClick={onPrevPage}
                 title="Pagina precedente"
                 aria-label="Vai alla pagina precedente"
               >
                 <ChevronLeft size={18} aria-hidden="true" />
               </button>
-              <button 
-                className="toolbar-btn" 
-                onClick={onNextPage} 
+              <button
+                className="toolbar-btn"
+                onClick={onNextPage}
                 title="Pagina successiva"
                 aria-label="Vai alla pagina successiva"
               >
@@ -417,14 +449,28 @@ const ReaderView = ({
         )}
       </AnimatePresence>
 
-      {/* TOC Panel */}
+      {/* Panel Backdrop - click to dismiss */}
+      <AnimatePresence>
+        {anyPanelOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="panel-backdrop"
+            onClick={closeAllPanels}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* TOC Panel - slides from right */}
       <AnimatePresence>
         {showTOC && (
           <motion.div
-            initial={{ x: -380, opacity: 0 }}
+            initial={{ x: 380, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -380, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            exit={{ x: 380, opacity: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
             className="side-panel glass-panel"
           >
             <div className="settings-header">
@@ -458,14 +504,14 @@ const ReaderView = ({
         )}
       </AnimatePresence>
 
-      {/* Bookmarks Panel */}
+      {/* Bookmarks Panel - slides from right */}
       <AnimatePresence>
         {showBookmarks && (
           <motion.div
-            initial={{ x: -380, opacity: 0 }}
+            initial={{ x: 380, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -380, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            exit={{ x: 380, opacity: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
             className="side-panel glass-panel"
           >
             <div className="settings-header">
@@ -473,6 +519,18 @@ const ReaderView = ({
               <button onClick={() => setShowBookmarks(false)}>
                 <X size={18} />
               </button>
+            </div>
+            {/* Progress Bar & Page Info */}
+            <div className="toolbar-progress-container">
+              <div
+                className="toolbar-progress-bar"
+                style={{ width: `${readingProgress}%` }}
+              />
+              {pageInfo && (
+                <div className="page-indicator">
+                  Pagina {pageInfo.current} di {pageInfo.total}
+                </div>
+              )}
             </div>
             <div className="panel-content">
               <button
@@ -509,14 +567,14 @@ const ReaderView = ({
         )}
       </AnimatePresence>
 
-      {/* Search Panel */}
+      {/* Search Panel - slides from right */}
       <AnimatePresence>
         {showSearch && (
           <motion.div
-            initial={{ x: -380, opacity: 0 }}
+            initial={{ x: 380, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -380, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            exit={{ x: 380, opacity: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
             className="side-panel glass-panel"
           >
             <div className="settings-header">
@@ -610,7 +668,7 @@ const ReaderView = ({
             <div className="setting-group">
               <label>Carattere</label>
               <div className="font-selector-compact">
-                <button 
+                <button
                   className="font-selector-trigger"
                   onClick={() => setShowFontPanel(!showFontPanel)}
                 >
@@ -619,9 +677,9 @@ const ReaderView = ({
                   </span>
                   <span className="font-selector-arrow">{showFontPanel ? '▲' : '▼'}</span>
                 </button>
-                
+
                 {showFontPanel && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
@@ -660,76 +718,6 @@ const ReaderView = ({
         )}
       </AnimatePresence>
 
-      {/* Quick Typography Popover */}
-      <AnimatePresence>
-        {showQuickTypography && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, x: 20 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.95, x: 20 }}
-            className="quick-typography-panel glass-panel"
-          >
-            <div className="quick-typography-header">
-              <span className="panel-title-small">Tipografia</span>
-              <button onClick={() => setShowQuickTypography(false)}>
-                <X size={16} />
-              </button>
-            </div>
-            
-            {/* Font Size Slider */}
-            <div className="quick-control">
-              <label>Dimensione</label>
-              <div className="font-size-slider">
-                <button onClick={() => onFontSizeChange(-10)} className="size-btn">−</button>
-                <span className="size-value">{fontSize}%</span>
-                <button onClick={() => onFontSizeChange(10)} className="size-btn">+</button>
-              </div>
-            </div>
-            
-            {/* Quick Font Select */}
-            <div className="quick-control">
-              <label>Carattere</label>
-              <div className="quick-font-options">
-                {[
-                  { id: 'georgia', name: 'Georgia', family: 'Georgia, serif' },
-                  { id: 'palatino', name: 'Palatino', family: '"Palatino Linotype", serif' },
-                  { id: 'verdana', name: 'Verdana', family: 'Verdana, sans-serif' },
-                  { id: 'system', name: 'System', family: 'system-ui, sans-serif' }
-                ].map((font) => (
-                  <button
-                    key={font.id}
-                    className={`quick-font-btn ${readingFont === font.id ? 'active' : ''}`}
-                    onClick={() => onFontChange(font.id)}
-                    style={{ fontFamily: font.family }}
-                    title={font.name}
-                  >
-                    {font.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Quick Theme Select */}
-            <div className="quick-control">
-              <label>Tema</label>
-              <div className="quick-theme-options">
-                {Object.entries(THEMES).map(([key, theme]) => (
-                  <button
-                    key={key}
-                    className={`quick-theme-btn ${currentTheme === key ? 'active' : ''}`}
-                    onClick={() => onThemeChange(key)}
-                    title={theme.name}
-                    style={{ background: theme.body.background }}
-                  >
-                    <span style={{ color: theme.body.color }}>{theme.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Zen Mode Exit Button */}
       <AnimatePresence>
         {zenMode && (
@@ -745,6 +733,39 @@ const ReaderView = ({
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* Navigation Zones for Click-to-Turn */}
+      <div
+        className="nav-zone-left"
+        onClick={onPrevPage}
+        aria-label="Pagina precedente"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && onPrevPage()}
+      />
+      <div
+        className="nav-zone-right"
+        onClick={onNextPage}
+        aria-label="Pagina successiva"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && onNextPage()}
+      />
+
+      {/* Reading Progress Bar - Minimal */}
+      <div className="reading-progress-container">
+        <div className="reading-progress-track">
+          <motion.div
+            className="reading-progress-fill"
+            initial={{ width: 0 }}
+            animate={{ width: `${readingProgress}%` }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          />
+        </div>
+        <div className="reading-progress-info">
+          <span className="reading-progress-percentage">{readingProgress}%</span>
+        </div>
+      </div>
 
       {/* Highlight Popup */}
       <HighlightPopup
