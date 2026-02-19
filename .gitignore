@@ -70,3 +70,13 @@ scripts/screenshot_sidebar_win.py
 # ── Varie ───────────────────────────────────────
 telemetry-id
 nul
+
+# ── Release build (usa GitHub Releases invece) ──
+release/
+
+# ── File di backup ───────────────────────────────
+*.backup
+*.bak
+
+# ── File temporanei Claude ───────────────────────
+tmpclaude-*
