@@ -1,0 +1,155 @@
+# Launch the Lumina Reader web app
+- openLink: http://localhost:5173/
+
+# Wait for the app to fully load
+- waitForAnimationToEnd
+
+# ==========================================
+# HOME VIEW / LIBRARY TESTS
+# ==========================================
+
+# Verify main library view is loaded
+- assertVisible: "Lumina"  # Or your app title/header
+
+# Verify "Collezioni" (Collections) section exists
+- assertVisible: "Collezioni"
+- assertVisible: 
+    id: "collections-container"  # If you have an ID, otherwise use text above
+
+# Verify "Aggiungi Libro" (Add Book) button is present
+- assertVisible: "Aggiungi Libro"
+
+# ==========================================
+# ADD BOOK FLOW
+# ==========================================
+
+# Tap the Add Book button
+- tapOn: "Aggiungi Libro"
+
+# Wait for upload modal/dialog to appear
+- waitForAnimationToEnd
+
+# Verify upload dialog elements
+- assertVisible: "Seleziona un ebook"  # Or "Upload", "Drop files here", etc.
+- assertVisible: 
+    id: "file-input"
+
+# Tap cancel/close to go back (or upload a test file)
+- tapOn: 
+    id: "close-modal"  # Or text: "Annulla" / "X"
+
+# ==========================================
+# OPEN BOOK FLOW
+# ==========================================
+
+# Wait for modal to close
+- waitForAnimationToEnd
+
+# Verify we're back to library view
+- assertVisible: "Collezioni"
+
+# Tap on first book cover (adjust ID/class based on your actual implementation)
+- tapOn:
+    id: "book-card-0"  # Or use text if books have titles visible
+    # Alternative: tapOn: "Book Title"
+
+# Wait for book reader to open
+- extendedWaitUntil:
+    visible: 
+      id: "viewer"
+    timeout: 5000
+
+# ==========================================
+# READER/VIEWER TESTS
+# ==========================================
+
+# Verify reader container is visible
+- assertVisible:
+    id: "viewer"
+
+# Verify book content is rendered (not empty)
+- assertVisible:
+    id: "book-content"
+
+# ==========================================
+# NAVIGATION / INDEX (INDICE) TESTS
+# ==========================================
+
+# Open table of contents - "Indice"
+- tapOn:
+    id: "Indice"  # Or text: "Indice" / "Contents"
+
+# Wait for TOC panel to slide in
+- waitForAnimationToEnd
+
+# Verify TOC is now visible
+- assertVisible:
+    id: "table-of-contents"
+
+# Tap on a chapter (first chapter)
+- tapOn:
+    id: "chapter-0"  # Or text: "Chapter 1" / "Introduzione"
+
+# Wait for page to navigate
+- waitForAnimationToEnd
+
+# Verify TOC closed automatically after selection (behavior depends on your app)
+- assertNotVisible:
+    id: "table-of-contents"
+
+# Or if TOC stays open, close it manually:
+# - tapOn:
+#     id: "close-toc"
+
+# ==========================================
+# READING INTERACTIONS
+# ==========================================
+
+# Test page turn - tap on right side (next page)
+- tapOn:
+    point: "80%,50%"  # 80% from left, 50% height (right side center)
+
+- waitForAnimationToEnd
+
+# Test page turn - tap on left side (previous page)
+- tapOn:
+    point: "20%,50%"  # 20% from left, 50% height (left side center)
+
+- waitForAnimationToEnd
+
+# Test tap in center to toggle toolbar (if applicable)
+- tapOn:
+    point: "50%,50%"
+
+- waitForAnimationToEnd
+
+# ==========================================
+# SETTINGS/UI TESTS (if available)
+# ==========================================
+
+# If you have a settings button:
+# - tapOn:
+#     id: "settings-button"
+# - assertVisible: "Font Size"
+# - tapOn: "A+"  # Increase font
+# - tapOn:
+#     id: "close-settings"
+
+# ==========================================
+# RETURN TO LIBRARY
+# ==========================================
+
+# Tap back button to return to library
+- tapOn:
+    id: "back-button"  # Or text: "←" / "Back" / "Library"
+
+- waitForAnimationToEnd
+
+# Verify we're back at library view
+- assertVisible: "Collezioni"
+- assertVisible: "Aggiungi Libro"
+
+# ==========================================
+# END TEST
+# ==========================================
+- stopApp
