@@ -715,9 +715,9 @@ const LibraryView = memo(function LibraryView({
               ))}
             </div>
           ) : filteredLibrary.length === 0 ? (
-            <div className="empty-state">
-              <div className={`dropzone ${isDragOver ? 'active' : ''}`}>
-                <Upload size={48} strokeWidth={1} color="var(--accent)" aria-hidden="true" />
+            <div className={`empty-state ${isDragOver ? 'active' : ''}`}>
+              <div className="dropzone">
+                <Upload size={48} strokeWidth={1} color={isDragOver ? "var(--accent-warm)" : "var(--accent)"} aria-hidden="true" />
                 <p>
                   {library.length === 0
                     ? 'Trascina qui il tuo primo libro per iniziare'

@@ -1024,6 +1024,12 @@ a:focus:not(:focus-visible) {
   border-radius: 20px;
   margin-top: 2rem;
   padding: 3rem 2rem;
+  transition: all 0.3s ease;
+}
+
+.empty-state.active {
+  border-color: var(--accent-warm);
+  background: rgba(192, 93, 78, 0.05);
 }
 
 .empty-state .primary-button {
@@ -4379,8 +4385,8 @@ a:focus:not(:focus-visible) {
 }
 
 .library-view[data-library-theme="dark"] .icon-button.active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-warm);
+  border-color: var(--accent-warm);
   color: white;
 }
 
@@ -4440,21 +4446,13 @@ a:focus:not(:focus-visible) {
   border-color: #444;
 }
 
-.library-view[data-library-theme="dark"] .empty-state p {
-  color: #aaa;
-}
-
-.library-view[data-library-theme="dark"] .dropzone {
-  border-color: #444;
-}
-
-.library-view[data-library-theme="dark"] .dropzone.active {
-  border-color: var(--accent);
+.library-view[data-library-theme="dark"] .empty-state.active {
+  border-color: var(--accent-warm);
   background: rgba(234, 88, 12, 0.1);
 }
 
 .library-view[data-library-theme="dark"] .empty-state p {
-  color: #888;
+  color: #aaa;
 }
 
 /* Library-specific light theme overrides */

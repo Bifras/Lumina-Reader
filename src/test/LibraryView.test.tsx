@@ -23,6 +23,7 @@ vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   },
+  AnimatePresence: ({ children }: any) => <>{children}</>,
 }))
 
 // Mock CollectionSidebar
@@ -354,8 +355,8 @@ describe('LibraryView Component', () => {
       render(<LibraryView {...props} />)
 
       // Assert
-      const dropzone = document.querySelector('.dropzone')
-      expect(dropzone).toHaveClass('active')
+      const emptyState = document.querySelector('.empty-state')
+      expect(emptyState).toHaveClass('active')
     })
   })
 
