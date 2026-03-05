@@ -23,32 +23,34 @@ afterEach(() => {
 })
 
 // Mock window.matchMedia for responsive queries
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-  length: 0,
-  key: vi.fn(),
+  // Mock localStorage
+  const localStorageMock = {
+    getItem: vi.fn(),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+    clear: vi.fn(),
+    length: 0,
+    key: vi.fn(),
+  }
+  Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock,
+  })
 }
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-})
 
 // Mock IndexedDB (localforage)
 vi.mock('localforage', () => {
@@ -76,12 +78,14 @@ vi.mock('localforage', () => {
 })
 
 // Mock Electron API
-global.window.electronAPI = {
-  getBookServerPort: vi.fn(() => Promise.resolve(8080)),
-  saveBookFile: vi.fn(() => Promise.resolve()),
-  deleteBookFile: vi.fn(() => Promise.resolve()),
-  openBookDialog: vi.fn(() => Promise.resolve(null)),
-  getBooksPath: vi.fn(() => Promise.resolve('/mock/path')),
+if (typeof window !== 'undefined') {
+  global.window.electronAPI = {
+    getBookServerPort: vi.fn(() => Promise.resolve(8080)),
+    saveBookFile: vi.fn(() => Promise.resolve()),
+    deleteBookFile: vi.fn(() => Promise.resolve()),
+    openBookDialog: vi.fn(() => Promise.resolve(null)),
+    getBooksPath: vi.fn(() => Promise.resolve('/mock/path')),
+  }
 }
 
 // Mock epubjs
@@ -106,21 +110,23 @@ vi.mock('epubjs', () => ({
 }))
 
 // Mock IntersectionObserver
-global.IntersectionObserver = vi.fn(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-  root: null,
-  rootMargin: '',
-  thresholds: [],
-})) as any
+if (typeof global !== 'undefined') {
+  (global as any).IntersectionObserver = vi.fn(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+    root: null,
+    rootMargin: '',
+    thresholds: [],
+  })) as any
 
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-})) as any
+  // Mock ResizeObserver
+  (global as any).ResizeObserver = vi.fn(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  })) as any
+}
 
 // Suppress console errors in tests (optional - remove when debugging)
 const originalError = console.error

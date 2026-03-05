@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { resetStorage } from './test/mocks/localforage.js'
 import localforage from 'localforage'
 import {
+  dbService,
   getCollections,
   createCollection,
   updateCollection,
@@ -28,6 +29,14 @@ describe('db.js - Collections Functions', () => {
     resetStorage()
     // Clear localforage
     await localforage.clear()
+    // Ensure we start in non-SQLite mode for these tests
+    if (global.window) {
+      global.window.electronAPI = undefined
+      if (global.window.localStorage) {
+        global.window.localStorage.clear()
+      }
+    }
+    dbService.resetForTest()
   })
 
   describe('getCollections', () => {
@@ -466,8 +475,57 @@ describe('db.js - File Storage Functions', () => {
     global.window.electronAPI = {
       saveBookFile: vi.fn(() => Promise.resolve(true)),
       deleteBookFile: vi.fn(() => Promise.resolve(true)),
-      getBookServerPort: vi.fn(() => Promise.resolve(12345))
+      getBookServerPort: vi.fn(() => Promise.resolve(12345)),
+      db: {
+        getAllBooks: vi.fn(() => Promise.resolve([])),
+        saveBook: vi.fn((book) => Promise.resolve(book)),
+        getBookById: vi.fn((id) => Promise.resolve(null)),
+        deleteBook: vi.fn(() => Promise.resolve()),
+        updateBookProgress: vi.fn(() => Promise.resolve()),
+        batchInsertBooks: vi.fn(() => Promise.resolve()),
+        getCollections: vi.fn(() => Promise.resolve([])),
+        saveCollection: vi.fn((c) => Promise.resolve(c)),
+        deleteCollection: vi.fn(() => Promise.resolve()),
+        getBookCollections: vi.fn(() => Promise.resolve([])),
+        addBookToCollection: vi.fn(() => Promise.resolve()),
+        removeBookFromCollection: vi.fn(() => Promise.resolve()),
+        getHighlights: vi.fn(() => Promise.resolve([])),
+        saveHighlight: vi.fn((h) => Promise.resolve(h)),
+        deleteHighlight: vi.fn(() => Promise.resolve()),
+        getSetting: vi.fn(() => Promise.resolve(null)),
+        setSetting: vi.fn(() => Promise.resolve()),
+      }
     }
+    dbService.resetForTest()
+  })
+
+  describe('SQLite Integration', () => {
+    it('should use SQLite for getLibrary when electronAPI.db is available', async () => {
+      const mockBooks = [{ id: '1', title: 'SQLite Book' }]
+      window.electronAPI.db.getAllBooks.mockResolvedValue(mockBooks)
+
+      const library = await getLibrary()
+
+      expect(window.electronAPI.db.getAllBooks).toHaveBeenCalled()
+      expect(library).toEqual(mockBooks)
+    })
+
+    it('should use SQLite for saveBookMetadata', async () => {
+      const bookData = { id: 'book-1', title: 'Test Book' }
+      await saveBookMetadata(bookData)
+
+      expect(window.electronAPI.db.saveBook).toHaveBeenCalledWith(bookData)
+    })
+
+    it('should use SQLite for collections', async () => {
+      const mockCollections = [{ id: 'all', name: 'All' }]
+      window.electronAPI.db.getCollections.mockResolvedValue(mockCollections)
+
+      const collections = await getCollections()
+
+      expect(window.electronAPI.db.getCollections).toHaveBeenCalled()
+      expect(collections).toEqual(mockCollections)
+    })
   })
 
   describe('saveBookFile', () => {
