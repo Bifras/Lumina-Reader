@@ -7,6 +7,12 @@ export type SortOrder = 'asc' | 'desc'
 export type FilterBy = 'all' | 'reading' | 'finished' | 'unread'
 export type ViewMode = 'grid' | 'list'
 
+export interface AdvancedFilters {
+  genre?: string
+  minRating?: number
+  isFavorite?: boolean
+}
+
 export interface LibraryStoreState {
   library: Book[]
   isLoading: boolean
@@ -15,6 +21,7 @@ export interface LibraryStoreState {
   sortOrder: SortOrder
   filterBy: FilterBy
   viewMode: ViewMode
+  advancedFilters: AdvancedFilters
 }
 
 export interface LibraryStoreActions {
@@ -33,6 +40,8 @@ export interface LibraryStoreActions {
   setFilterBy: (filterBy: FilterBy) => void
   setViewMode: (viewMode: ViewMode) => void
   toggleSortOrder: () => void
+  setAdvancedFilters: (filters: AdvancedFilters) => void
+  clearAdvancedFilters: () => void
   
   // Computed
   getFilteredLibrary: () => Book[]
@@ -51,6 +60,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   sortOrder: 'desc',
   filterBy: 'all',
   viewMode: 'grid',
+  advancedFilters: {},
   
   // Actions
   setLibrary: (library) => set({ library }),
@@ -118,10 +128,12 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   toggleSortOrder: () => set((state) => ({ 
     sortOrder: state.sortOrder === 'asc' ? 'desc' : 'asc' 
   })),
+  setAdvancedFilters: (filters) => set({ advancedFilters: filters }),
+  clearAdvancedFilters: () => set({ advancedFilters: {} }),
   
   // Computed
   getFilteredLibrary: () => {
-    const { library, searchQuery, sortBy, sortOrder, filterBy } = get()
+    const { library, searchQuery, sortBy, sortOrder, filterBy, advancedFilters } = get()
     
     let filtered = [...library]
     
@@ -134,7 +146,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       )
     }
     
-    // Apply filter
+    // Apply basic filter
     if (filterBy !== 'all') {
       switch (filterBy) {
         case 'reading':
@@ -148,9 +160,21 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
           break
       }
     }
+
+    // Apply advanced filters
+    if (advancedFilters.genre) {
+      filtered = filtered.filter(book => book.genre === advancedFilters.genre)
+    }
+    if (advancedFilters.minRating !== undefined) {
+      filtered = filtered.filter(book => (book.rating || 0) >= advancedFilters.minRating!)
+    }
+    if (advancedFilters.isFavorite !== undefined) {
+      filtered = filtered.filter(book => !!book.isFavorite === advancedFilters.isFavorite)
+    }
     
     // Apply sort
     filtered.sort((a, b) => {
+
       let comparison = 0
       switch (sortBy) {
         case 'title':
