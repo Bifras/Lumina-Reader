@@ -36,7 +36,7 @@ describe('AdvancedFiltersMenu', () => {
     expect(screen.getByText('Filtri Avanzati')).toBeInTheDocument()
     expect(screen.getByLabelText('Genere')).toBeInTheDocument()
     expect(screen.getByLabelText('Valutazione minima')).toBeInTheDocument()
-    expect(screen.getByLabelText('Solo Preferiti')).toBeInTheDocument()
+    expect(screen.getByText('Solo Preferiti')).toBeInTheDocument()
   })
 
   it('calls setAdvancedFilters when a filter is changed', () => {

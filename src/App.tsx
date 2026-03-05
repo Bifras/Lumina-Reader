@@ -14,11 +14,11 @@ import ReaderView from './views/ReaderView'
 import { useToast, useBookLoader, useHighlights } from './hooks'
 
 // Services & DB
-import { dbService, getBooksInCollection, updateProgress } from './db'
+import { getBooksInCollection, updateProgress } from './db'
 import { LibraryService } from './services/LibraryService'
 
 // Store
-import { useCollectionStore, useAppStore } from './store'
+import { useCollectionStore, useAppStore, useLibraryStore } from './store'
 import { useLibrarySettingsStore } from './store/useLibrarySettingsStore'
 
 // Types
@@ -33,8 +33,8 @@ function App(): React.ReactElement {
   const [isLibraryLoading, setIsLibraryLoading] = useState<boolean>(true)
   const [activeBook, setActiveBook] = useState<Book | null>(null)
   const [isDragOver, setIsDragOver] = useState<boolean>(false)
-  const [searchQuery, setSearchQuery] = useState<string>('')
-  const [currentSort, setCurrentSort] = useState<'recent' | 'title' | 'author'>('recent')
+  const lastSearch = useLibrarySettingsStore(state => state.lastSearch)
+  const [searchQuery, setSearchQuery] = useState<string>(lastSearch || '')
 
   // Reader Settings - from Zustand store (single source of truth)
   const {
@@ -56,32 +56,40 @@ function App(): React.ReactElement {
   // Refs
   const viewerRef = useRef<HTMLDivElement>(null)
   const progressUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const librarySwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readerCleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Hooks
   const { toasts, addToast, removeToast } = useToast()
   const activeCollectionId = useCollectionStore(state => state.activeCollectionId)
 
-  // Memoized filtered and sorted library
-  const filteredLibrary = useMemo(() => {
-    const collectionBooks = getBooksInCollection(activeCollectionId, library)
+  const advancedFilters = useLibraryStore(state => state.advancedFilters)
 
-    // Filter
-    let result = collectionBooks
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      result = result.filter((b: Book) =>
-        b.title.toLowerCase().includes(query) ||
-        (b.author || '').toLowerCase().includes(query)
-      )
+  // Memoized filtered library (sorting is handled in LibraryView settings)
+  const filteredLibrary = useMemo(() => {
+    let collectionBooks = getBooksInCollection(activeCollectionId, library)
+
+    // Apply advanced filters
+    if (advancedFilters.genre) {
+      collectionBooks = collectionBooks.filter((b: Book) => b.genre === advancedFilters.genre)
+    }
+    if (advancedFilters.minRating !== undefined) {
+      collectionBooks = collectionBooks.filter((b: Book) => (b.rating || 0) >= advancedFilters.minRating!)
+    }
+    if (advancedFilters.isFavorite !== undefined) {
+      collectionBooks = collectionBooks.filter((b: Book) => !!b.isFavorite === advancedFilters.isFavorite)
     }
 
-    // Sort
-    return [...result].sort((a, b) => {
-      if (currentSort === 'title') return a.title.localeCompare(b.title)
-      if (currentSort === 'author') return (a.author || '').localeCompare(b.author || '')
-      return b.addedAt - a.addedAt // Default: recent
-    })
-  }, [activeCollectionId, library, searchQuery, currentSort])
+    if (!searchQuery.trim()) {
+      return collectionBooks
+    }
+
+    const query = searchQuery.toLowerCase()
+    return collectionBooks.filter((b: Book) =>
+      b.title.toLowerCase().includes(query) ||
+      (b.author || '').toLowerCase().includes(query)
+    )
+  }, [activeCollectionId, library, searchQuery, advancedFilters])
 
   // Load library on mount (reader settings are persisted via Zustand)
   useEffect(() => {
@@ -216,6 +224,19 @@ function App(): React.ReactElement {
     }
   }, [readingProgress, activeBook])
 
+  useEffect(() => {
+    return () => {
+      if (librarySwitchTimeoutRef.current) {
+        clearTimeout(librarySwitchTimeoutRef.current)
+        librarySwitchTimeoutRef.current = null
+      }
+      if (readerCleanupTimeoutRef.current) {
+        clearTimeout(readerCleanupTimeoutRef.current)
+        readerCleanupTimeoutRef.current = null
+      }
+    }
+  }, [])
+
   // Load book when pendingBookLoad is set and viewer is ready
   useEffect(() => {
     if (pendingBookLoad && viewerReady && viewerRef.current) {
@@ -224,25 +245,11 @@ function App(): React.ReactElement {
     }
   }, [pendingBookLoad, viewerReady, loadBookIntoViewer, setIsLoading])
 
-  // Get library settings store for theme synchronization
-  const libraryTheme = useLibrarySettingsStore(state => state.libraryTheme)
-  const setLibraryTheme = useLibrarySettingsStore(state => state.setLibraryTheme)
-
-  // Apply theme to documentElement for CSS cascading and sync with library theme
+  // Apply theme to documentElement for CSS cascading
   useEffect(() => {
-    // Apply reader theme to documentElement
+    // Apply global theme to documentElement
     document.documentElement.setAttribute('data-theme', currentTheme)
-    
-    // Sync library theme to match reader theme (unified experience)
-    // Only override library theme if it's not set to 'auto'
-    if (libraryTheme !== 'auto') {
-      // Map reader themes to library themes (light/dark only)
-      const mappedTheme = currentTheme === 'dark' ? 'dark' : 'light'
-      if (libraryTheme !== mappedTheme) {
-        setLibraryTheme(mappedTheme as 'light' | 'dark')
-      }
-    }
-  }, [currentTheme, libraryTheme, setLibraryTheme])
+  }, [currentTheme])
 
   // Handlers
   const handleFileUpload = useCallback(async (file: File | null): Promise<void> => {
@@ -292,38 +299,57 @@ function App(): React.ReactElement {
   }, [library, addToast, setIsLoading])
 
   const handleLoadBook = useCallback((file: File | null, savedCfi?: string, bookId?: string): void => {
+    if (librarySwitchTimeoutRef.current) {
+      clearTimeout(librarySwitchTimeoutRef.current)
+      librarySwitchTimeoutRef.current = null
+    }
+
+    if (readerCleanupTimeoutRef.current) {
+      clearTimeout(readerCleanupTimeoutRef.current)
+      readerCleanupTimeoutRef.current = null
+    }
+
     if (bookId) {
       const book = library.find(b => b.id === bookId)
       if (!book) return
       setActiveBook(book)
     }
     setPendingBookLoad({ file: file || undefined, savedCfi, bookId })
-  }, [library])
+  }, [library, setPendingBookLoad])
 
   const handleReturnToLibrary = useCallback((): void => {
-    resetReader()
-    setActiveBook(null)
-    setBookmarks([])
+    if (librarySwitchTimeoutRef.current) {
+      clearTimeout(librarySwitchTimeoutRef.current)
+      librarySwitchTimeoutRef.current = null
+    }
+
+    if (readerCleanupTimeoutRef.current) {
+      clearTimeout(readerCleanupTimeoutRef.current)
+      readerCleanupTimeoutRef.current = null
+    }
+
+    // Move UI switch out of the click event to avoid long blocking handlers.
+    librarySwitchTimeoutRef.current = setTimeout(() => {
+      setActiveBook(null)
+      setBookmarks([])
+      librarySwitchTimeoutRef.current = null
+
+      // Run heavy EPUB teardown later, after Library has had time to paint.
+      readerCleanupTimeoutRef.current = setTimeout(() => {
+        resetReader()
+        readerCleanupTimeoutRef.current = null
+      }, 120)
+    }, 0)
   }, [resetReader])
 
   const handleDeleteBook = useCallback(async (id: string): Promise<void> => {
-    if (confirm('Sei sicuro di voler eliminare questo libro?')) {
-      try {
-        await LibraryService.deleteBook(id)
-        setLibrary(prev => prev.filter(b => b.id !== id))
-        addToast('Libro eliminato', 'info')
-      } catch (error) {
-        console.error('[DELETE] Error deleting book:', error)
-        addToast('Impossibile eliminare il libro', 'error', 'Errore')
-      }
-    }
-  }, [addToast])
-
-  const handleClearLibrary = useCallback(async (): Promise<void> => {
-    if (confirm('Vuoi davvero svuotare tutta la libreria?')) {
-      const newLib = await dbService.clearLibrary()
-      setLibrary(newLib)
-      addToast('Libreria svuotata', 'info')
+    try {
+      await LibraryService.deleteBook(id)
+      setLibrary(prev => prev.filter(b => b.id !== id))
+      addToast('Libro eliminato', 'info')
+    } catch (error) {
+      console.error('[DELETE] Error deleting book:', error)
+      addToast('Impossibile eliminare il libro', 'error', 'Errore')
     }
   }, [addToast])
 
@@ -387,12 +413,9 @@ function App(): React.ReactElement {
             onFileUpload={handleFileUpload}
             onLoadBook={handleLoadBook}
             onDeleteBook={handleDeleteBook}
-            onClearLibrary={handleClearLibrary}
             onUpdateLibrary={setLibrary}
             onRegenerateCovers={handleRegenerateCovers}
             onSearchChange={setSearchQuery}
-            onSortChange={setCurrentSort}
-            currentSort={currentSort}
             isLoading={isLibraryLoading}
           />
         ) : (
@@ -434,3 +457,8 @@ function App(): React.ReactElement {
 }
 
 export default App
+
+
+
+
+

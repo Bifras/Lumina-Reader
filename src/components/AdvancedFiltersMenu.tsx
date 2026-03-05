@@ -65,7 +65,7 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
       {isOpen && (
         <motion.div
           ref={dropdownRef}
-          className="settings-dropdown"
+          className="library-settings-dropdown"
           initial={{ opacity: 0, y: -10, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -73,64 +73,67 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
           role="dialog"
           aria-label="Filtri Avanzati"
         >
-          <div className="settings-header">
-            <h3><Filter size={16} /> Filtri Avanzati</h3>
-            <button onClick={onClose} className="icon-button" aria-label="Chiudi menu" title="Chiudi (Esc)">
+          <div className="library-settings-header">
+            <h3 className="library-settings-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Filter size={16} /> Filtri Avanzati
+            </h3>
+            <button onClick={onClose} className="library-settings-close-btn" aria-label="Chiudi menu" title="Chiudi (Esc)">
               <X size={18} />
             </button>
           </div>
 
           <div className="settings-content">
-            <div className="settings-section">
-              <div className="settings-option">
-                <label htmlFor="genre-filter">Genere</label>
-                <input
-                  id="genre-filter"
-                  type="text"
-                  placeholder="Es. Sci-Fi, Fantasy"
-                  value={advancedFilters.genre || ''}
-                  onChange={(e) => handleFilterChange('genre', e.target.value)}
-                  className="collection-create-input-inline"
-                  style={{ width: '100%', marginTop: '8px' }}
-                />
-              </div>
+            <div className="library-settings-section">
+              <label htmlFor="genre-filter" className="library-settings-label">Genere</label>
+              <input
+                id="genre-filter"
+                type="text"
+                placeholder="Es. Sci-Fi, Fantasy"
+                value={advancedFilters.genre || ''}
+                onChange={(e) => handleFilterChange('genre', e.target.value)}
+                className="library-search-input"
+                style={{ width: '100%', marginBottom: '4px' }}
+              />
             </div>
 
-            <div className="settings-section">
-              <div className="settings-option">
-                <label htmlFor="min-rating-filter">Valutazione minima</label>
+            <div className="library-settings-section">
+              <label htmlFor="min-rating-filter" className="library-settings-label">Valutazione minima</label>
+              <div className="library-settings-select-wrapper">
                 <select
                   id="min-rating-filter"
                   value={advancedFilters.minRating || ''}
                   onChange={(e) => handleFilterChange('minRating', e.target.value ? Number(e.target.value) : undefined)}
-                  style={{ marginLeft: 'auto', padding: '4px', borderRadius: '4px', background: 'var(--surface-2)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                  className="library-settings-select"
                 >
                   <option value="">Qualsiasi</option>
-                  <option value="1">1 Stella</option>
-                  <option value="2">2 Stelle</option>
-                  <option value="3">3 Stelle</option>
-                  <option value="4">4 Stelle</option>
+                  <option value="1">1+ Stella</option>
+                  <option value="2">2+ Stelle</option>
+                  <option value="3">3+ Stelle</option>
+                  <option value="4">4+ Stelle</option>
                   <option value="5">5 Stelle</option>
                 </select>
               </div>
             </div>
 
-            <div className="settings-section">
-              <label className="settings-option">
-                <span>Solo Preferiti</span>
-                <input
-                  type="checkbox"
-                  checked={advancedFilters.isFavorite || false}
-                  onChange={(e) => handleFilterChange('isFavorite', e.target.checked ? true : undefined)}
-                />
-              </label>
+            <div className="library-settings-section">
+              <div className="library-settings-display-options">
+                <label className={`library-settings-display-option ${advancedFilters.isFavorite ? 'active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={advancedFilters.isFavorite || false}
+                    onChange={(e) => handleFilterChange('isFavorite', e.target.checked ? true : undefined)}
+                  />
+                  <div className="library-settings-check-icon">✓</div>
+                  <span className="library-settings-option-label">Solo Preferiti</span>
+                </label>
+              </div>
             </div>
 
-            <div className="settings-section" style={{ borderBottom: 'none', paddingTop: '16px', display: 'flex', justifyContent: 'center' }}>
+            <div className="library-settings-section" style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
               <button
-                className="btn btn--secondary"
+                className="primary-button-small"
                 onClick={handleReset}
-                style={{ width: '100%' }}
+                style={{ width: '100%', justifyContent: 'center' }}
                 aria-label="Reset filtri"
               >
                 Reset filtri

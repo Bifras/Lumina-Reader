@@ -56,7 +56,8 @@ a:focus:not(:focus-visible) {
 .library-main {
   margin-left: var(--sidebar-width);
   transition: margin-left 0.3s var(--ease-out-expo);
-  min-height: 100%;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .library-main--sidebar-collapsed {
@@ -1729,8 +1730,7 @@ a:focus:not(:focus-visible) {
 }
 
 /* ============================================
-   VERTICAL TOOLBAR - Accessible Glassmorphism
-   Based on WCAG 2.2 & Axess Lab guidelines
+   VERTICAL TOOLBAR
    ============================================ */
 
 .vertical-toolbar {
@@ -1745,147 +1745,7 @@ a:focus:not(:focus-visible) {
   padding: 0.6rem 0.4rem;
   border-radius: 16px;
   z-index: 100;
-  width: 44px;
-
-  /* Semi-opaque background for contrast (not too transparent) */
-  background: rgba(30, 30, 30, 0.75);
-
-  /* Stronger blur for better glass effect */
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-
-  /* More visible border for better definition */
-  border: 1px solid rgba(255, 255, 255, 0.3);
-
-  /* Layered shadows for depth perception */
-  box-shadow:
-    /* Top highlight for glass edge */
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    /* Drop shadows */
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.3);
-
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-/* ============================================
-   THEME-SPECIFIC GLASSMORPHISM
-   ============================================ */
-
-/* Light theme - warm ivory glass */
-[data-theme="light"] .vertical-toolbar {
-  background: rgba(249, 247, 242, 0.92);
-  border: 1px solid rgba(139, 125, 107, 0.35);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 8px 32px rgba(91, 70, 54, 0.15),
-    0 2px 8px rgba(91, 70, 54, 0.1);
-}
-
-[data-theme="light"] .toolbar-btn {
-  color: rgba(91, 70, 54, 0.8);
-}
-
-[data-theme="light"] .toolbar-btn:hover {
-  background: rgba(139, 125, 107, 0.12);
-  color: #5b4636;
-  border-color: rgba(139, 125, 107, 0.3);
-}
-
-[data-theme="light"] .toolbar-btn.active {
-  background: rgba(91, 70, 54, 0.15);
-  color: #5b4636;
-  border: 1px solid rgba(91, 70, 54, 0.4);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 2px 8px rgba(91, 70, 54, 0.1);
-}
-
-[data-theme="light"] .toolbar-divider {
-  background: rgba(139, 125, 107, 0.2);
-}
-
-[data-theme="light"] .toolbar-btn:focus-visible {
-  outline: 2px solid #8b7d6b;
-  background: rgba(139, 125, 107, 0.1);
-}
-
-/* Sepia theme - warm amber glass */
-[data-theme="sepia"] .vertical-toolbar {
-  background: rgba(244, 236, 216, 0.9);
-  border: 1px solid rgba(139, 119, 101, 0.4);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 8px 32px rgba(91, 70, 54, 0.2),
-    0 2px 8px rgba(91, 70, 54, 0.12);
-}
-
-[data-theme="sepia"] .toolbar-btn {
-  color: rgba(91, 70, 54, 0.85);
-}
-
-[data-theme="sepia"] .toolbar-btn:hover {
-  background: rgba(139, 119, 101, 0.15);
-  color: #5b4636;
-  border-color: rgba(139, 119, 101, 0.35);
-}
-
-[data-theme="sepia"] .toolbar-btn.active {
-  background: rgba(139, 119, 101, 0.25);
-  color: #4a3728;
-  border: 1px solid rgba(139, 119, 101, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 2px 8px rgba(91, 70, 54, 0.12);
-}
-
-[data-theme="sepia"] .toolbar-divider {
-  background: rgba(139, 119, 101, 0.25);
-}
-
-[data-theme="sepia"] .toolbar-btn:focus-visible {
-  outline: 2px solid #8b7765;
-  background: rgba(139, 119, 101, 0.12);
-}
-
-/* Dark theme - elegant white/gray glass */
-[data-theme="dark"] .vertical-toolbar {
-  background: rgba(230, 230, 235, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .toolbar-btn {
-  color: rgba(30, 30, 35, 0.8);
-  border: 1px solid transparent;
-}
-
-[data-theme="dark"] .toolbar-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #1a1a1a;
-  border-color: rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="dark"] .toolbar-btn.active {
-  background: rgba(0, 0, 0, 0.12);
-  color: #000;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="dark"] .toolbar-divider {
-  background: rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="dark"] .toolbar-btn:focus-visible {
-  outline: 2px solid #1a1a1a;
-  outline-offset: 2px;
-  background: rgba(0, 0, 0, 0.06);
+  width: 52px; /* Increased for better touch targets */
 }
 
 .toolbar-group {
@@ -1894,92 +1754,53 @@ a:focus:not(:focus-visible) {
   gap: 0.35rem;
 }
 
-/* Buttons with accessible contrast - Compact */
 .toolbar-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 44px; /* WCAG recommended touch target size */
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  /* High contrast icon color (WCAG 3:1 for UI components) */
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-dim);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: transform 0.15s ease, background-color 0.15s ease;
-  /* Focus outline for keyboard navigation */
+  transition: all 0.15s ease;
   outline: none;
   position: relative;
 }
 
-/* Light theme - dark icons for contrast */
-[data-theme="light"] .toolbar-btn {
-  color: rgba(0, 0, 0, 0.75);
-}
-
-/* Hover state - visible background change */
 .toolbar-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border-color: var(--border-subtle);
+  transform: translateY(-2px);
 }
 
-[data-theme="light"] .toolbar-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #000;
-  border-color: rgba(0, 0, 0, 0.15);
-}
-
-/* Active/pressed state */
 .toolbar-btn:active {
   transform: scale(0.95);
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--surface-hover);
 }
 
-/* Active (selected) state - distinct from hover */
 .toolbar-btn.active {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  /* Additional shadow for elevation */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 2px 8px rgba(0, 0, 0, 0.2);
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
 }
 
-[data-theme="light"] .toolbar-btn.active {
-  background: rgba(0, 0, 0, 0.12);
-  color: #000;
-  border: 1px solid rgba(0, 0, 0, 0.25);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Focus state for keyboard navigation (WCAG 2.4.7) */
 .toolbar-btn:focus-visible {
-  outline: 2px solid var(--accent-warm, #c05d4e);
+  outline: 2px solid var(--accent-warm);
   outline-offset: 2px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--surface-hover);
 }
 
-[data-theme="light"] .toolbar-btn:focus-visible {
-  outline: 2px solid var(--accent-warm, #c05d4e);
-  background: rgba(0, 0, 0, 0.08);
-}
-
-/* Visible divider with adequate contrast */
 .toolbar-divider {
-  width: 28px;
+  width: 36px;
   height: 2px;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--border-subtle);
   margin: 0.2rem 0;
   border-radius: 1px;
-}
-
-[data-theme="light"] .toolbar-divider {
-  background: rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================
@@ -3484,7 +3305,7 @@ a:focus:not(:focus-visible) {
   flex-direction: column;
   padding: 60px 16px 20px; /* Increased top padding to clear space for the toggle button */
   transition: width 0.3s var(--ease-out-expo);
-  overflow: hidden;
+  /* Removed overflow: hidden so the toggle button isn't clipped! */
 }
 
 .collection-sidebar-fixed--collapsed {
@@ -3500,11 +3321,11 @@ a:focus:not(:focus-visible) {
 /* --- Toggle Button --- */
 .collection-sidebar-toggle {
   position: absolute;
-  right: 8px;
-  top: 20px;
+  right: -18px; /* Float on the edge */
+  top: 24px;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 50%; /* Perfect circle */
   border: 1px solid var(--border-subtle);
   background: var(--surface-card);
   cursor: pointer;
@@ -3512,8 +3333,8 @@ a:focus:not(:focus-visible) {
   align-items: center;
   justify-content: center;
   color: var(--text-dim);
-  box-shadow: var(--shadow-sm);
-  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 110;
   padding: 0;
 }
@@ -3522,23 +3343,24 @@ a:focus:not(:focus-visible) {
   background: var(--surface-hover);
   color: var(--text-main);
   border-color: var(--accent-warm);
-  transform: scale(1.05);
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .collection-sidebar-fixed--collapsed .collection-sidebar-toggle {
-  right: 50%;
-  transform: translateX(50%);
+  right: -18px;
+  transform: none;
 }
 
 .collection-sidebar-fixed--collapsed .collection-sidebar-toggle:hover {
-  transform: translateX(50%) scale(1.05);
+  transform: scale(1.1);
 }
 
 @media (max-width: 768px) {
   .collection-sidebar-toggle {
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: 50%; /* Maintained perfect circle on mobile */
   }
 }
 
@@ -3547,7 +3369,8 @@ a:focus:not(:focus-visible) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+  padding-right: 40px; /* Prevent overlap with the absolute positioned toggle button */
 }
 
 .collection-sidebar-title {
@@ -4401,8 +4224,8 @@ a:focus:not(:focus-visible) {
 }
 
 .library-view[data-library-theme="dark"] .no-cover {
-  background: linear-gradient(135deg, #252525 0%, #1a1a1a 100%);
-  color: #666;
+  background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+  color: #888;
 }
 
 .library-view[data-library-theme="dark"] .book-meta h4 {
@@ -4502,10 +4325,36 @@ a:focus:not(:focus-visible) {
 }
 
 /* Override CollectionSidebar styles for library themes */
-.library-view[data-library-theme="dark"] ~ .collection-sidebar,
-.library-view[data-library-theme="dark"] .collection-sidebar {
+.library-view[data-library-theme="dark"] ~ .collection-sidebar-fixed,
+.library-view[data-library-theme="dark"] .collection-sidebar-fixed {
   background: #121212;
   border-right-color: #333;
+}
+
+.library-view[data-library-theme="dark"] .collection-sidebar-label,
+.library-view[data-library-theme="dark"] .collection-section-title,
+.library-view[data-library-theme="dark"] .collection-sidebar-shortcuts {
+  color: #a0a0a0;
+}
+
+.library-view[data-library-theme="dark"] .collection-sidebar-toggle,
+.library-view[data-library-theme="dark"] .collection-add-btn {
+  background: #1e1e1e;
+  border-color: #333;
+  color: #aaa;
+}
+
+.library-view[data-library-theme="dark"] .collection-sidebar-toggle:hover,
+.library-view[data-library-theme="dark"] .collection-add-btn:hover {
+  background: #2a2a2a;
+  color: #fff;
+  border-color: #555;
+}
+
+.library-view[data-library-theme="dark"] .collection-add-btn--enhanced {
+  background: linear-gradient(135deg, var(--accent-warm) 0%, #d35400 100%);
+  color: white;
+  border: none;
 }
 
 .library-view[data-library-theme="dark"] .collection-item {
@@ -4703,6 +4552,50 @@ a:focus:not(:focus-visible) {
   background: var(--surface-hover);
 }
 
+.library-view .library-settings-segmented.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Sort Grid */
+.library-view .library-settings-sort-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+/* Chips Wrap */
+.library-view .library-settings-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Toggle Chip */
+.library-view .library-settings-toggle-chip {
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-ui);
+}
+
+.library-view .library-settings-toggle-chip:hover {
+  background: var(--surface-hover);
+  border-color: var(--text-soft);
+  color: var(--text-main);
+}
+
+.library-view .library-settings-toggle-chip.active {
+  background: rgba(192, 93, 78, 0.1);
+  border-color: var(--accent-warm);
+  color: var(--accent-warm);
+}
+
 /* Chip Button - Elevated Design */
 .library-view .library-settings-chip {
   min-height: 56px;
@@ -4718,6 +4611,11 @@ a:focus:not(:focus-visible) {
   color: var(--text-soft);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.library-view .library-settings-chip.small {
+  min-height: 42px;
+  padding: 4px;
 }
 
 .library-view .library-settings-chip:hover {
