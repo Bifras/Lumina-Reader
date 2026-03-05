@@ -10,8 +10,8 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Schema & IPC Refinement' (Protocol in workflow.md)
 
 ## Phase 2: Store & Service Layer
-- [ ] Task: Write Tests: Library Store updates.
-- [ ] Task: Implement: Update useLibraryStore to handle new collection logic.
+- [x] Task: Write Tests: Library Store updates. [9ae3909]
+- [x] Task: Implement: Update useLibraryStore to handle new collection logic. [9ae3909]
 - [ ] Task: Write Tests: Library Service methods.
 - [ ] Task: Implement: Refactor LibraryService.ts for advanced filtering.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Store & Service Layer' (Protocol in workflow.md)
