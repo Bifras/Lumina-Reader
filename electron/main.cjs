@@ -6,11 +6,13 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const handler = require('serve-handler');
+const DatabaseManager = require('./db.cjs');
 
 // Keep a global reference of the window object to prevent garbage collection
 let mainWindow;
 let bookServer;
 let bookServerPort = 0;
+let db;
 
 // Path for storing books
 let booksDir;
@@ -68,6 +70,11 @@ function setupBooksDirectory() {
     } else {
         console.log('[Main] Books directory exists:', booksDir);
     }
+
+    // Initialize Database
+    const dbPath = path.join(userDataPath, 'library.db');
+    db = new DatabaseManager(dbPath);
+    console.log('[Main] Database initialized at:', dbPath);
 }
 
 // Start local HTTP server for serving EPUB files
@@ -159,6 +166,46 @@ function setupIPCHandlers() {
     ipcMain.handle('get-book-server-port', () => {
         return bookServerPort;
     });
+
+    // --- Database Handlers ---
+    
+    // Books
+    ipcMain.handle('db:get-all-books', () => db.getAllBooks());
+    ipcMain.handle('db:save-book', (event, book) => db.saveBook(book));
+    ipcMain.handle('db:get-book-by-id', (event, id) => db.getBookById(id));
+    ipcMain.handle('db:delete-book', (event, id) => db.deleteBook(id));
+    ipcMain.handle('db:update-book-progress', (event, { id, cfi, progress }) => db.updateBookProgress(id, cfi, progress));
+    ipcMain.handle('db:batch-insert-books', (event, books) => db.batchInsertBooks(books));
+
+    // Collections
+    ipcMain.handle('db:get-collections', () => db.getCollections());
+    ipcMain.handle('db:save-collection', (event, collection) => db.saveCollection(collection));
+    ipcMain.handle('db:delete-collection', (event, id) => db.deleteCollection(id));
+
+    // Book-Collection Relationships
+    ipcMain.handle('db:get-book-collections', (event, bookId) => db.getBookCollections(bookId));
+    ipcMain.handle('db:add-book-to-collection', (event, { bookId, collectionId }) => db.addBookToCollection(bookId, collectionId));
+    ipcMain.handle('db:remove-book-from-collection', (event, { bookId, collectionId }) => db.removeBookFromCollection(bookId, collectionId));
+
+    // Tags
+    ipcMain.handle('db:get-all-tags', () => db.getAllTags());
+    ipcMain.handle('db:save-tag', (event, tag) => db.saveTag(tag));
+    ipcMain.handle('db:delete-tag', (event, id) => db.deleteTag(id));
+    ipcMain.handle('db:add-tag-to-book', (event, { bookId, tagId }) => db.addTagToBook(bookId, tagId));
+    ipcMain.handle('db:remove-tag-from-book', (event, { bookId, tagId }) => db.removeTagFromBook(bookId, tagId));
+    ipcMain.handle('db:get-book-tags', (event, bookId) => db.getBookTags(bookId));
+
+    // Search / Advanced Filtering
+    ipcMain.handle('db:search-books', (event, filters) => db.searchBooks(filters));
+
+    // Highlights
+    ipcMain.handle('db:get-highlights', (event, bookId) => db.getHighlights(bookId));
+    ipcMain.handle('db:save-highlight', (event, highlight) => db.saveHighlight(highlight));
+    ipcMain.handle('db:delete-highlight', (event, id) => db.deleteHighlight(id));
+
+    // Settings
+    ipcMain.handle('db:get-setting', (event, key) => db.getSetting(key));
+    ipcMain.handle('db:set-setting', (event, { key, value }) => db.setSetting(key, value));
 
     // Window controls
     ipcMain.handle('minimize-window', () => {
