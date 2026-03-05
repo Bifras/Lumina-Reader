@@ -1,9 +1,9 @@
 # Implementation Plan: Refine Library Management and Collection Persistence
 
 ## Phase 1: Schema & IPC Refinement
-- [ ] Task: Update SQLite schema for advanced collections and tags.
-    - [ ] Define new table structures in electron/db.cjs.
-    - [ ] Implement migration scripts for existing data.
+- [x] Task: Update SQLite schema for advanced collections and tags. [340b20c]
+    - [x] Define new table structures in electron/db.cjs.
+    - [x] Implement migration scripts for existing data.
 - [ ] Task: Enhance IPC handlers for batch operations.
     - [ ] Update electron/main.cjs with new database handlers.
     - [ ] Expose updated API in electron/preload.cjs.
