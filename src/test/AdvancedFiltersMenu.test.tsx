@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import AdvancedFiltersMenu from '../components/AdvancedFiltersMenu'
-import { useLibraryStore } from '../store'
+import { useLibraryStore } from '../store/useLibraryStore'
 
-vi.mock('../store', () => ({
+vi.mock('../store/useLibraryStore', () => ({
   useLibraryStore: vi.fn(),
 }))
 
