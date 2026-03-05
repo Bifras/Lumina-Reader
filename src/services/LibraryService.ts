@@ -115,6 +115,10 @@ export class LibraryService {
     await dbService.removeBook(id)
   }
 
+  static async searchBooks(filters: any): Promise<Book[]> {
+    return await dbService.searchBooks(filters)
+  }
+
   static async getLibrary(): Promise<Book[]> {
     const books = await dbService.getLibrary()
     // Clean up expired blob URLs
