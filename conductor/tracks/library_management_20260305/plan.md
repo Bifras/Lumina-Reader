@@ -4,9 +4,9 @@
 - [x] Task: Update SQLite schema for advanced collections and tags. [340b20c]
     - [x] Define new table structures in electron/db.cjs.
     - [x] Implement migration scripts for existing data.
-- [ ] Task: Enhance IPC handlers for batch operations.
-    - [ ] Update electron/main.cjs with new database handlers.
-    - [ ] Expose updated API in electron/preload.cjs.
+- [x] Task: Enhance IPC handlers for batch operations. [d8bfebe]
+    - [x] Update electron/main.cjs with new database handlers.
+    - [x] Expose updated API in electron/preload.cjs.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Schema & IPC Refinement' (Protocol in workflow.md)
 
 ## Phase 2: Store & Service Layer
