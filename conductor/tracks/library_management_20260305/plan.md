@@ -17,10 +17,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Store & Service Layer' (Protocol in workflow.md)
 
 ## Phase 3: UI Implementation
-- [x] Task: Write Tests: Collection Management UI.
-- [x] Task: Implement: Update CollectionSidebar and BookCard for new features.
-- [x] Task: Write Tests: Advanced Filtering UI.
-- [x] Task: Implement: Add filter controls to LibraryView.
+- [x] Task: Write Tests: Collection Management UI. [dc27b98]
+- [x] Task: Implement: Update CollectionSidebar and BookCard for new features. [dc27b98]
+- [x] Task: Write Tests: Advanced Filtering UI. [43639a6]
+- [x] Task: Implement: Add filter controls to LibraryView. [43639a6]
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: UI Implementation' (Protocol in workflow.md)
 
 ## Phase 4: Verification
