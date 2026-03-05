@@ -12,12 +12,12 @@
 ## Phase 2: Store & Service Layer
 - [x] Task: Write Tests: Library Store updates. [9ae3909]
 - [x] Task: Implement: Update useLibraryStore to handle new collection logic. [9ae3909]
-- [ ] Task: Write Tests: Library Service methods.
-- [ ] Task: Implement: Refactor LibraryService.ts for advanced filtering.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Store & Service Layer' (Protocol in workflow.md)
+- [x] Task: Write Tests: Library Service methods. [1615fec]
+- [x] Task: Implement: Refactor LibraryService.ts for advanced filtering. [1615fec]
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Store & Service Layer' (Protocol in workflow.md)
 
 ## Phase 3: UI Implementation
-- [ ] Task: Write Tests: Collection Management UI.
+- [~] Task: Write Tests: Collection Management UI.
 - [ ] Task: Implement: Update CollectionSidebar and BookCard for new features.
 - [ ] Task: Write Tests: Advanced Filtering UI.
 - [ ] Task: Implement: Add filter controls to LibraryView.
