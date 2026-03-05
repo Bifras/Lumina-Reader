@@ -143,8 +143,8 @@ button {
 
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   border: var(--glass-border);
   box-shadow: var(--glass-shadow);
   transition: var(--transition-theme);
@@ -167,3 +167,29 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-soft);
 }
+
+/* ===================================================================
+   NEW UI ELEMENTS (Tags and Nested Collections)
+   =================================================================== */
+.collection-item--nested {
+  margin-left: 16px;
+  border-left: 1px solid var(--border-color);
+  padding-left: 8px;
+}
+
+.tags-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.meta-tag.custom-tag {
+  background: var(--surface-2);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+

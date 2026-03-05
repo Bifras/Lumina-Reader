@@ -1,10 +1,12 @@
-import { useEffect, useState, useRef, useCallback, memo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Library, BookOpen, CheckCircle, Bookmark, Heart,
-  Folder, Plus, MoreVertical, Trash2, Edit2, ChevronLeft, ChevronRight, X
+  Folder, Plus, MoreVertical, Trash2, Edit2, ChevronLeft, ChevronRight, LibraryBig
 } from 'lucide-react'
 import { useCollectionStore } from '../store/useCollectionStore'
+import { resolveRestoredCollectionId } from './collectionSidebarUtils'
+import { useLibrarySettingsStore } from '../store/useLibrarySettingsStore'
 import {
   DndContext,
   closestCenter,
@@ -23,6 +25,7 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable'
+import { useKeyboardShortcuts } from '../hooks'
 import type { Collection, Book } from '../types'
 
 const iconMap = {
@@ -44,6 +47,7 @@ interface SortableCollectionItemProps {
   isMenuOpen: boolean
   isCollapsed: boolean
   bookCount: number
+  isNested?: boolean
 }
 
 const SortableCollectionItem = memo(function SortableCollectionItem({
@@ -55,7 +59,8 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
   onDelete,
   isMenuOpen,
   isCollapsed,
-  bookCount
+  bookCount,
+  isNested
 }: SortableCollectionItemProps) {
   const {
     attributes,
@@ -86,11 +91,6 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isMenuOpen, onMenuToggle])
 
-  const handleMenuClick = useCallback((e: MouseEvent) => {
-    e.stopPropagation()
-    onMenuToggle(isMenuOpen ? null : collection.id)
-  }, [isMenuOpen, collection.id, onMenuToggle])
-
   const handleSelect = useCallback(() => {
     onSelect(collection.id)
   }, [collection.id, onSelect])
@@ -101,7 +101,7 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
         whileHover={{ x: isCollapsed ? 0 : 4 }}
         whileTap={{ scale: 0.98 }}
         onClick={handleSelect}
-        className={`collection-item ${isActive ? 'collection-item--active' : ''} ${isCollapsed ? 'collection-item--collapsed' : ''}`}
+        className={`collection-item ${isActive ? 'collection-item--active' : ''} ${isCollapsed ? 'collection-item--collapsed' : ''} ${isNested ? 'collection-item--nested' : ''}`}
         title={isCollapsed ? collection.name : undefined}
         role="button"
         tabIndex={0}
@@ -120,18 +120,18 @@ const SortableCollectionItem = memo(function SortableCollectionItem({
             style={{ cursor: 'grab', opacity: 0.4, display: 'flex', alignItems: 'center', padding: '4px' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="9" cy="6" r="1.5"/>
-              <circle cx="15" cy="6" r="1.5"/>
-              <circle cx="9" cy="12" r="1.5"/>
-              <circle cx="15" cy="12" r="1.5"/>
-              <circle cx="9" cy="18" r="1.5"/>
-              <circle cx="15" cy="18" r="1.5"/>
+              <circle cx="9" cy="6" r="1.5" />
+              <circle cx="15" cy="6" r="1.5" />
+              <circle cx="9" cy="12" r="1.5" />
+              <circle cx="15" cy="12" r="1.5" />
+              <circle cx="9" cy="18" r="1.5" />
+              <circle cx="15" cy="18" r="1.5" />
             </svg>
           </div>
         )}
 
-        <Icon size={isCollapsed ? 20 : 18} className="collection-item__icon" />
-        {!isCollapsed && <span className="collection-item__name">{collection.name}</span>}
+        <Icon size={20} className="collection-item__icon" />
+        <span className="collection-item__name sidebar-anim-fade">{collection.name}</span>
 
         {!isCollapsed && bookCount > 0 && (
           <span className="collection-item__badge">{bookCount}</span>
@@ -220,8 +220,8 @@ const CollectionItem = memo(function CollectionItem({
           }
         }}
       >
-        <Icon size={isCollapsed ? 20 : 18} className="collection-item__icon" />
-        {!isCollapsed && <span className="collection-item__name">{collection.name}</span>}
+        <Icon size={20} className="collection-item__icon" />
+        <span className="collection-item__name sidebar-anim-fade">{collection.name}</span>
 
         {!isCollapsed && bookCount > 0 && (
           <span className="collection-item__badge">{bookCount}</span>
@@ -240,22 +240,26 @@ interface CollectionSidebarProps {
 export default function CollectionSidebar({ isCollapsed, onToggle, library }: CollectionSidebarProps) {
   const {
     activeCollectionId,
+    collections,
     loadCollections,
     setActiveCollection,
     createNewCollection,
+    updateCollectionData,
     deleteCollectionById,
-    getCustomCollections,
-    getSmartCollections,
     reorderCollections,
-    getBookCount
+    getBookCount,
+    bookCollections,
+    isLoading
   } = useCollectionStore()
 
   const [isCreating, setIsCreating] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
-  const [, setEditingCollection] = useState<Collection | null>(null)
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [bookCounts, setBookCounts] = useState<Record<string, number>>({})
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
+  const isCreatingRef = useRef(false)
+  const hasRestoredFilterRef = useRef(false)
+  const lastFilter = useLibrarySettingsStore(state => state.lastFilter)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -264,58 +268,106 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
     })
   )
 
+  const smartCollections = useMemo(
+    () => collections.filter(c => c.type === 'smart'),
+    [collections]
+  )
+  const customCollections = useMemo(
+    () => collections.filter(c => c.type === 'custom'),
+    [collections]
+  )
+
   useEffect(() => {
     loadCollections()
   }, [loadCollections])
 
   useEffect(() => {
-    if (!library || library.length === 0) return
+    if (isLoading) return
+    if (hasRestoredFilterRef.current) return
+    if (collections.length === 0) return
 
-    const loadCounts = async () => {
-      const smartCollections = getSmartCollections()
-      const customCollections = getCustomCollections()
-      const allCollections = [...smartCollections, ...customCollections]
+    const allCollectionIds = [...smartCollections, ...customCollections].map(c => c.id)
+    const restoredCollectionId = resolveRestoredCollectionId(lastFilter, allCollectionIds)
 
-      const counts: Record<string, number> = {}
-      for (const collection of allCollections) {
-        counts[collection.id] = await getBookCount(collection.id, library)
-      }
-      setBookCounts(counts)
-    }
-
-    loadCounts()
-  }, [library, getSmartCollections, getCustomCollections, getBookCount])
-
-  const smartCollections = getSmartCollections()
-  const customCollections = getCustomCollections()
+    setActiveCollection(restoredCollectionId)
+    hasRestoredFilterRef.current = true
+  }, [isLoading, collections, lastFilter, setActiveCollection, smartCollections, customCollections])
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '9') {
-        e.preventDefault()
+    let isMounted = true
+    const loadCounts = async () => {
+      const allCollections = [...smartCollections, ...customCollections]
+
+      if (allCollections.length === 0) {
+        if (isMounted) {
+          setBookCounts(prev => (Object.keys(prev).length === 0 ? prev : {}))
+        }
+        return
+      }
+
+      const entries = await Promise.all(
+        allCollections.map(async (collection) => {
+          const count = await getBookCount(collection.id, library)
+          return [collection.id, count] as const
+        })
+      )
+
+      if (isMounted) {
+        const nextCounts = Object.fromEntries(entries) as Record<string, number>
+        setBookCounts(prev => {
+          const prevKeys = Object.keys(prev)
+          const nextKeys = Object.keys(nextCounts)
+          if (prevKeys.length !== nextKeys.length) return nextCounts
+          for (const key of nextKeys) {
+            if (prev[key] !== nextCounts[key]) return nextCounts
+          }
+          return prev
+        })
+      }
+    }
+
+    void loadCounts()
+    return () => {
+      isMounted = false
+    }
+  }, [library, smartCollections, customCollections, getBookCount, bookCollections])
+
+
+  // Use the extracted hook for keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: '1-9',
+      ctrlOrMeta: true,
+      preventDefault: true,
+      action: (e) => {
         const index = parseInt(e.key) - 1
         const allCollections = [...smartCollections, ...customCollections]
         if (index < allCollections.length) {
           setActiveCollection(allCollections[index].id)
         }
       }
-
-      if ((e.metaKey || e.ctrlKey) && e.key === '0') {
-        e.preventDefault()
+    },
+    {
+      key: '0',
+      ctrlOrMeta: true,
+      preventDefault: true,
+      action: () => {
         setActiveCollection('all')
       }
-
-      if (e.key === 'Escape' && isCreating) {
-        setIsCreating(false)
-        setNewCollectionName('')
+    },
+    {
+      key: 'Escape',
+      ctrlOrMeta: false,
+      action: () => {
+        if (isCreating) {
+          setIsCreating(false)
+          setNewCollectionName('')
+        }
       }
     }
+  ])
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [smartCollections, customCollections, setActiveCollection, isCreating])
-
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
 
     if (over && active.id !== over.id) {
@@ -329,13 +381,29 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
     }
 
     setActiveId(null)
-  }, [customCollections, reorderCollections])
+  }
 
   const handleCreateCollection = useCallback(async () => {
-    if (!newCollectionName.trim()) return
+    const name = newCollectionName.trim()
+    if (!name || isCreatingRef.current) {
+      if (!name) {
+        setIsCreating(false)
+      }
+      return
+    }
+
+    const alreadyExists = [...smartCollections, ...customCollections]
+      .some(c => c.name.trim().toLowerCase() === name.toLowerCase())
+
+    if (alreadyExists) {
+      window.alert('Esiste già una collezione con questo nome.')
+      return
+    }
+
+    isCreatingRef.current = true
     try {
       await createNewCollection({
-        name: newCollectionName.trim(),
+        name,
         icon: 'Folder',
         color: '#c05d4e'
       })
@@ -343,8 +411,10 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
       setIsCreating(false)
     } catch (error) {
       console.error('Error creating collection:', error)
+    } finally {
+      isCreatingRef.current = false
     }
-  }, [newCollectionName, createNewCollection])
+  }, [newCollectionName, createNewCollection, smartCollections, customCollections])
 
   const handleDeleteCollection = useCallback(async (collectionId: string) => {
     try {
@@ -359,17 +429,43 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
     setActiveCollection(collectionId)
   }, [setActiveCollection])
 
-  const handleEditCollection = useCallback((collection: Collection) => {
-    setEditingCollection(collection)
+  const handleEditCollection = useCallback(async (collection: Collection) => {
     setMenuOpen(null)
-  }, [])
+
+    const proposedName = window.prompt('Nuovo nome collezione', collection.name)
+    if (proposedName === null) return
+
+    const nextName = proposedName.trim()
+    if (!nextName || nextName === collection.name) return
+
+    const duplicateName = [...smartCollections, ...customCollections].some(
+      c => c.id !== collection.id && c.name.trim().toLowerCase() === nextName.toLowerCase()
+    )
+
+    if (duplicateName) {
+      window.alert('Esiste già una collezione con questo nome.')
+      return
+    }
+
+    try {
+      await updateCollectionData(collection.id, { name: nextName })
+    } catch (error) {
+      console.error('Error renaming collection:', error)
+    }
+  }, [smartCollections, customCollections, updateCollectionData])
 
   return (
-    <div className={`collection-sidebar-fixed ${isCollapsed ? 'collection-sidebar-fixed--collapsed' : ''}`}>
+    <motion.div
+
+
+      className={`collection-sidebar-fixed ${isCollapsed ? 'collection-sidebar-fixed--collapsed' : ''}`}
+    >
       <button
         onClick={onToggle}
         className="collection-sidebar-toggle"
-        title={isCollapsed ? 'Espandi' : 'Collassa'}
+        title={isCollapsed ? 'Espandi barra laterale' : 'Collassa barra laterale'}
+        aria-expanded={!isCollapsed}
+        aria-label="Menu laterale collezioni"
       >
         {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
       </button>
@@ -377,30 +473,15 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
       <div className="collection-sidebar-header">
         {!isCollapsed && (
           <div>
-            <div className="collection-sidebar-title-wrapper" title="Collezioni">
-              <svg
-                className="collections-icon" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="1.5" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
+            <div className="collection-sidebar-title-wrapper" title="Lumina">
+              <LibraryBig
+                className="collections-icon"
+                size={32}
+                strokeWidth={1.5}
                 aria-hidden="true"
-              >
-                <path d="M3 11h18M3 21h18" />
-                <rect x="5" y="3" width="3" height="8" rx="0.5" />
-                <path d="M10 11l1.2-5.2a0.6 0.6 0 0 1 0.6-0.8h1.4a0.6 0.6 0 0 1 0.6 0.8l-1.2 5.2" />
-                <rect x="16" y="5" width="3" height="6" rx="0.5" />
-                <path d="M7.5 21l-1.8-6.3a0.6 0.6 0 0 0-0.6-0.7H3.7a0.6 0.6 0 0 0-0.6 0.7L4.9 21" />
-                <rect x="9.5" y="13" width="3" height="8" rx="0.5" />
-                <rect x="14.5" y="18" width="6.5" height="3" rx="0.5" />
-              </svg>
-              <span className="collection-sidebar-label">Collezioni</span>
+              />
+              <span className="collection-sidebar-label">Lumina</span>
             </div>
-            <p className="collection-sidebar-shortcuts">
-              <kbd>⌘</kbd><kbd>1-9</kbd> per navigare
-            </p>
           </div>
         )}
       </div>
@@ -409,7 +490,7 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
         {!isCollapsed && (
           <h3 className="collection-section-title">Libreria</h3>
         )}
-        <div className="collection-section-content">
+        <div className="collection-section-content" role="group" aria-label="Raccolte di sistema">
           {smartCollections.map((collection: Collection) => (
             <CollectionItem
               key={collection.id}
@@ -427,31 +508,10 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
         {!isCollapsed && (
           <div className="collection-section-header">
             <h3 className="collection-section-title">Mie Collezioni</h3>
-            <button
-              onClick={() => setIsCreating(true)}
-              className="collection-add-btn collection-add-btn--enhanced"
-              title="Crea nuova collezione"
-              aria-label="Crea nuova collezione"
-            >
-              <Plus size={16} />
-              <span className="collection-add-btn__label">Nuova</span>
-            </button>
           </div>
         )}
 
-        {isCollapsed && (
-          <div className="collection-section-content" style={{ marginTop: '8px' }}>
-            <button
-              onClick={() => setIsCreating(true)}
-              className="collection-item collection-item--collapsed"
-              title="Nuova collezione"
-            >
-              <Plus size={20} className="collection-item__icon" />
-            </button>
-          </div>
-        )}
-
-        {!isCollapsed && customCollections.length > 0 && (
+        {customCollections.length > 0 && (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -462,7 +522,7 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
               items={customCollections.map((c: Collection) => c.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="collection-section-content">
+              <div className="collection-section-content" role="group" aria-label="Mie collezioni personalizzate">
                 {customCollections.map((collection: Collection) => (
                   <SortableCollectionItem
                     key={collection.id}
@@ -475,12 +535,13 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
                     isMenuOpen={menuOpen === collection.id}
                     isCollapsed={isCollapsed}
                     bookCount={bookCounts[collection.id] || 0}
+                    isNested={!!collection.parentId}
                   />
                 ))}
               </div>
             </SortableContext>
             <DragOverlay>
-              {activeId ? (
+              {activeId && !isCollapsed ? (
                 <div className="collection-item collection-item--dragging">
                   {customCollections.find((c: Collection) => c.id === activeId)?.name}
                 </div>
@@ -489,65 +550,94 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library }: Co
           </DndContext>
         )}
 
-        {!isCollapsed && customCollections.length === 0 && !isCreating && (
-          <div className="collection-empty">
-            <div className="collection-empty__icon">📚</div>
-            <p>Nessuna collezione personalizzata</p>
-            <p className="collection-empty__hint">
-              Trascina per riordinare
-            </p>
+        {/* INLINE CREATION OR EMPTY STATE CTA */}
+        {!isCollapsed ? (
+          <div className="collection-section-content" style={{ marginTop: customCollections.length > 0 ? '4px' : '0' }}>
+            <AnimatePresence mode="wait">
+              {isCreating ? (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="collection-item-wrapper"
+                >
+                  <div className="collection-item collection-item--creating">
+                    <Folder size={18} className="collection-item__icon" style={{ opacity: 0.5 }} aria-hidden="true" />
+                    <input
+                      type="text"
+                      placeholder="Nome collezione..."
+                      value={newCollectionName}
+                      onChange={(e) => setNewCollectionName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void handleCreateCollection()
+                        }
+                        if (e.key === 'Escape') {
+                          setIsCreating(false)
+                          setNewCollectionName('')
+                        }
+                      }}
+                      onBlur={() => {
+                        if (newCollectionName.trim()) {
+                          void handleCreateCollection()
+                        } else {
+                          setIsCreating(false)
+                        }
+                      }}
+                      autoFocus
+                      className="collection-create-input-inline"
+                      aria-label="Nome nuova collezione"
+                    />
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="collection-item-wrapper"
+                >
+                  <button
+                    onClick={() => setIsCreating(true)}
+                    className="collection-item collection-item--add"
+                    aria-label="Crea nuova collezione"
+                  >
+                    <Plus size={18} className="collection-item__icon" aria-hidden="true" />
+                    <span className="collection-item__name">Nuova Collezione...</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <div className="collection-section-content" style={{ marginTop: '8px' }}>
+            <button
+              onClick={() => {
+                onToggle()
+                setTimeout(() => setIsCreating(true), 300) // Aspetta l'animazione di apertura
+              }}
+              className="collection-item collection-item--collapsed"
+              title="Crea nuova collezione"
+              aria-label="Espandi per creare nuova collezione"
+            >
+              <Plus size={18} className="collection-item__icon" aria-hidden="true" />
+            </button>
           </div>
         )}
       </div>
-
-      {!isCollapsed && (
-        <div className="collection-create-wrapper">
-          <AnimatePresence>
-            {isCreating && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="collection-create-form"
-              >
-                <input
-                  type="text"
-                  placeholder="Nome collezione..."
-                  value={newCollectionName}
-                  onChange={(e) => setNewCollectionName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateCollection()
-                    if (e.key === 'Escape') {
-                      setIsCreating(false)
-                      setNewCollectionName('')
-                    }
-                  }}
-                  autoFocus
-                  className="collection-create-input"
-                />
-                <div className="collection-create-actions">
-                  <button
-                    onClick={handleCreateCollection}
-                    disabled={!newCollectionName.trim()}
-                    className="collection-create-btn"
-                  >
-                    <CheckCircle size={16} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsCreating(false)
-                      setNewCollectionName('')
-                    }}
-                    className="collection-create-btn collection-create-btn--cancel"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-    </div>
+    </motion.div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
+

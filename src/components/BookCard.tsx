@@ -90,6 +90,17 @@ const BookCard = memo(function BookCard({
 
   const coverHeight = viewMode === 'compact' ? 160 : viewMode === 'list' ? 100 : Math.round(cardSize * 1.5)
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Activate only when the card container itself has focus.
+    // This avoids hijacking Enter/Space from nested controls (delete/rating buttons).
+    if (e.target !== e.currentTarget) return
+
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClick()
+    }
+  }, [onClick])
+
   if (viewMode === 'list') {
     return (
       <motion.div
@@ -99,10 +110,12 @@ const BookCard = memo(function BookCard({
         transition={{ duration: 0.2 }}
         whileHover={{ backgroundColor: 'var(--surface-hover)' }}
         onClick={onClick}
+        onKeyDown={handleKeyDown}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         style={cardStyle}
         role="listitem"
+        tabIndex={0}
       >
         <div 
           className="book-cover-wrapper book-cover-wrapper--small"
@@ -206,15 +219,20 @@ const BookCard = memo(function BookCard({
       transition={{ duration: 0.2, ease: 'easeOut' }}
       whileHover={{ y: -4 }}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={cardStyle}
       role="listitem"
+      tabIndex={0}
       aria-label={`${book.title}${book.author ? ` di ${book.author}` : ''}`}
     >
       <div 
         className="book-cover-wrapper"
-        style={{ height: coverHeight }}
+        style={{ 
+          height: coverHeight,
+          ...(book.cover && !coverError ? { '--cover-bg': `url("${book.cover}")` } : {}) as React.CSSProperties
+        }}
       >
         {book.cover && !coverError ? (
           <img 
@@ -266,41 +284,58 @@ const BookCard = memo(function BookCard({
             {showAuthor && book.author && (
               <span className="author" title={book.author}>{book.author}</span>
             )}
-            {showAuthor && book.author && showDate && formattedDate && (
-              <span className="separator" aria-hidden="true">•</span>
-            )}
             {showDate && formattedDate && (
               <span className="date">{formattedDate}</span>
             )}
           </div>
         ) : null}
+
+        {((showGenre && book.genre) || (showCollection && primaryCollection) || (book as any).tags?.length > 0) && (
+          <div className="book-meta-row tags-row">
+            {showGenre && book.genre && (
+              <span className="meta-tag genre-tag" title={book.genre}>{book.genre}</span>
+            )}
+            {showCollection && primaryCollection && (
+              <span className="meta-tag collection-tag" title={primaryCollection.name}>{primaryCollection.name}</span>
+            )}
+            {(book as any).tags?.map((tag: any) => (
+              <span key={tag.id} className="meta-tag custom-tag" title={tag.name}>
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
         
-        <div className="book-meta-bottom">
-          {showProgress && book.progress > 0 && (
-            <span className="progress-text">{book.progress}% letto</span>
-          )}
-          
-          {showRating && onRate && (
-            <div 
-              className="book-card__rating-wrapper"
-              onClick={handleRateClick}
-              aria-label="Valuta questo libro"
-            >
-              <StarRating 
-                rating={book.rating || 0} 
-                size={16}
-                interactive={interactiveRating}
-                onRate={handleRate}
-              />
-            </div>
-          )}
-          
-          {showRating && !onRate && book.rating !== undefined && book.rating > 0 && (
-            <span className="rating-label" aria-label={`Valutazione: ${book.rating} su 5 stelle`}>
-              ★ {book.rating}
-            </span>
-          )}
-        </div>
+        {((showProgress && book.progress > 0) || 
+          (showRating && onRate) || 
+          (showRating && !onRate && book.rating !== undefined && book.rating > 0)) && (
+          <div className="book-meta-bottom">
+            {showProgress && book.progress > 0 && (
+              <span className="progress-text">{book.progress}% letto</span>
+            )}
+            
+            {showRating && onRate && (
+              <div 
+                className="book-card__rating-wrapper"
+                onClick={handleRateClick}
+                aria-label="Valuta questo libro"
+              >
+                <StarRating 
+                  rating={book.rating || 0} 
+                  size={16}
+                  interactive={interactiveRating}
+                  onRate={handleRate}
+                />
+              </div>
+            )}
+            
+            {showRating && !onRate && book.rating !== undefined && book.rating > 0 && (
+              <span className="rating-label" aria-label={`Valutazione: ${book.rating} su 5 stelle`}>
+                ★ {book.rating}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </motion.div>
   )
