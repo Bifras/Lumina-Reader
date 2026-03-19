@@ -30,6 +30,7 @@ const BookCard = memo(function BookCard({
   book, 
   onClick, 
   onDelete,
+  onEdit,
   onRate,
   viewMode = 'grid',
   showProgress = true,
