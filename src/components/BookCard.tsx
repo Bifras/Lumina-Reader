@@ -1,6 +1,6 @@
 import { memo, MouseEventHandler, useState, useMemo, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Trash2, Edit2, User, Folder, Calendar, Tag, Book as BookIcon } from 'lucide-react'
+import { Trash2, Edit2, User, Folder, Calendar, Tag } from 'lucide-react'
 import StarRating from './StarRating'
 import type { Book } from '../types'
 
@@ -117,20 +117,6 @@ const BookCard = memo(function BookCard({
   }, [viewMode, cardSize])
 
   const coverHeight = viewMode === 'compact' ? 160 : viewMode === 'list' ? 100 : Math.round(cardSize * 1.5)
-
-  const noCoverMonogram = useMemo(() => {
-    const source = `${book.title} ${book.author || ''}`
-      .split(/\s+/)
-      .map(segment => segment.trim())
-      .filter(Boolean)
-
-    const initials = source
-      .slice(0, 2)
-      .map(segment => segment.charAt(0).toUpperCase())
-      .join('')
-
-    return initials || 'L'
-  }, [book.title, book.author])
 
   const noCoverClassName = useMemo(() => {
     // Generate a consistent color index (0-7) based on title hash
@@ -369,7 +355,7 @@ const BookCard = memo(function BookCard({
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
-                justify-content: center,
+                justifyContent: 'center',
                 backgroundColor: 'color-mix(in srgb, var(--text-main) 60%, transparent)',
                 color: 'var(--bg-ivory)',
                 border: '1px solid color-mix(in srgb, var(--bg-ivory) 30%, transparent)',

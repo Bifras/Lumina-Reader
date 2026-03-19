@@ -2,6 +2,7 @@ import { memo, type ChangeEvent, type RefObject, useState, useRef } from 'react'
 import { BookOpen, ImageIcon, Plus, Search, SlidersHorizontal, Filter } from 'lucide-react'
 import SettingsMenu from './LibrarySettingsMenu'
 import AdvancedFiltersMenu from './AdvancedFiltersMenu'
+import { useLibraryStore } from '../store/useLibraryStore'
 import type { Book } from '../types'
 
 interface LibrarySectionHeaderProps {
@@ -37,31 +38,32 @@ const LibrarySectionHeader = memo(function LibrarySectionHeader({
 }: LibrarySectionHeaderProps) {
   const [showFilters, setShowFilters] = useState(false)
   const filtersRef = useRef<HTMLDivElement>(null)
-
-  return (
-    <div className="library-section-header">
-      <div className="header-left">
-        <h2>Libreria</h2>
-        <div className="header-meta">
-          <span className="book-count" aria-label={`${filteredCount} ${filteredCount === 1 ? 'libro' : 'libri'}`}>
-            {filteredCount} {filteredCount === 1 ? 'libro' : 'libri'}
-          </span>
-          {lastReadBook && (
-            <button
-              className="resume-pill resume-pill--compact"
-              onClick={() => onResumeRead(lastReadBook)}
-              aria-label={`Continua: ${lastReadBook.title} (${lastReadBook.progress || 0}%)`}
-              title={`Continua: ${lastReadBook.title}`}
-            >
-              <BookOpen size={12} aria-hidden="true" />
-              <span className="resume-pill__title">{lastReadBook.title}</span>
-              <span className="resume-pill__progress">{lastReadBook.progress || 0}%</span>
-            </button>
-          )}
-        </div>
+  const advancedFilters = useLibraryStore(state => state.advancedFilters)
+  const hasActiveFilters = advancedFilters.genre !== undefined || advancedFilters.minRating !== undefined || advancedFilters.isFavorite !== undefined
+return (
+  <div className="library-section-header">
+    <div className="header-left">
+      <h2>Libreria</h2>
+      <div className="header-meta">
+        <span className="book-count" aria-label={`${filteredCount} ${filteredCount === 1 ? 'libro' : 'libri'}`}>
+          {filteredCount} {filteredCount === 1 ? 'libro' : 'libri'}
+        </span>
+        {lastReadBook && (
+          <button
+            className="resume-pill resume-pill--compact"
+            onClick={() => onResumeRead(lastReadBook)}
+            aria-label={`Continua: ${lastReadBook.title} (${lastReadBook.progress || 0}%)`}
+            title={`Continua: ${lastReadBook.title}`}
+          >
+            <BookOpen size={12} aria-hidden="true" />
+            <span className="resume-pill__title">{lastReadBook.title}</span>
+            {lastReadBook.progress !== undefined && (
+              <span className="resume-pill__progress">{Math.round(lastReadBook.progress)}%</span>
+            )}
+          </button>
+        )}
       </div>
-
-      <div className="library-controls">
+    </div>      <div className="library-controls">
         <div className="search-wrapper">
           <Search size={20} className="search-icon" aria-hidden="true" />
           <input
@@ -76,7 +78,7 @@ const LibrarySectionHeader = memo(function LibrarySectionHeader({
 
         <div className="settings-wrapper" ref={filtersRef}>
           <button
-            className={`icon-button settings-toggle ${showFilters ? 'active' : ''}`}
+            className={`icon-button settings-toggle ${(showFilters || hasActiveFilters) ? 'active' : ''}`}
             onClick={() => setShowFilters(!showFilters)}
             aria-label="Apri filtri avanzati"
             aria-expanded={showFilters}
@@ -142,3 +144,7 @@ const LibrarySectionHeader = memo(function LibrarySectionHeader({
 })
 
 export default LibrarySectionHeader
+
+
+
+

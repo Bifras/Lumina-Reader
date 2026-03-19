@@ -107,10 +107,10 @@ describe('useAppStore', () => {
 
     it('should support all font options', () => {
       const fontIds = FONT_OPTIONS.map(f => f.id)
-      expect(fontIds).toContain('lora')
-      expect(fontIds).toContain('atkinson')
-      expect(fontIds).toContain('bitter')
-      expect(fontIds).toContain('dyslexic')
+      expect(fontIds).toContain('georgia')
+      expect(fontIds).toContain('palatino')
+      expect(fontIds).toContain('times')
+      expect(fontIds).toContain('cambria')
     })
 
     it('should have valid font structure', () => {
@@ -118,7 +118,7 @@ describe('useAppStore', () => {
         expect(font).toHaveProperty('id')
         expect(font).toHaveProperty('name')
         expect(font).toHaveProperty('family')
-        expect(font).toHaveProperty('desc')
+        expect(font).toHaveProperty('description')
       })
     })
   })

@@ -17,12 +17,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import LibraryView from '../views/LibraryView'
 import type { Book } from '../types'
+import { useLibrarySettingsStore } from '../store/useLibrarySettingsStore'
 
 // Mock Framer Motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    div: ({ children, layout, initial, animate, exit, transition, ...props }: any) => <div {...props}>{children}</div>,
   },
+  AnimatePresence: ({ children }: any) => <>{children}</>,
 }))
 
 // Mock CollectionSidebar
@@ -55,21 +57,24 @@ vi.mock('../components/BookCard', () => ({
 
 // Mock useCollectionStore
 vi.mock('../store/useCollectionStore', () => ({
-  useCollectionStore: vi.fn(() => ({
-    activeCollectionId: 'all',
-  })),
+  useCollectionStore: vi.fn((selector?: (state: { activeCollectionId: string }) => unknown) => {
+    const state = { activeCollectionId: 'all' }
+    return typeof selector === 'function' ? selector(state) : state
+  }),
 }))
 
 describe('LibraryView Component', () => {
+  // Mock window.confirm
+  const mockConfirm = vi.fn(() => true)
+  vi.stubGlobal('confirm', mockConfirm)
+
   // Mock functions
   const mockSetIsDragOver = vi.fn()
   const mockOnFileUpload = vi.fn()
   const mockOnLoadBook = vi.fn()
-  const mockOnDeleteBook = vi.fn()
-  const mockOnClearLibrary = vi.fn()
+  const mockOnDeleteBook = vi.fn()
   const mockOnRegenerateCovers = vi.fn()
-  const mockOnSearchChange = vi.fn()
-  const mockOnSortChange = vi.fn()
+  const mockOnSearchChange = vi.fn()
 
   // Sample book data
   const mockBooks: Book[] = [
@@ -108,16 +113,14 @@ describe('LibraryView Component', () => {
     setIsDragOver: mockSetIsDragOver,
     onFileUpload: mockOnFileUpload,
     onLoadBook: mockOnLoadBook,
-    onDeleteBook: mockOnDeleteBook,
-    onClearLibrary: mockOnClearLibrary,
+    onDeleteBook: mockOnDeleteBook,
     onRegenerateCovers: mockOnRegenerateCovers,
-    onSearchChange: mockOnSearchChange,
-    onSortChange: mockOnSortChange,
-    currentSort: 'recent' as const,
+    onSearchChange: mockOnSearchChange,
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    useLibrarySettingsStore.getState().resetToDefaults()
   })
 
   describe('Rendering', () => {
@@ -170,7 +173,8 @@ describe('LibraryView Component', () => {
       render(<LibraryView {...defaultProps} />)
 
       // Assert
-      expect(screen.getByText('Test Book 1')).toBeInTheDocument()
+      // Titles may appear in resume pill and cards
+      expect(screen.getAllByText('Test Book 1').length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('Test Book 2')).toBeInTheDocument()
       expect(screen.getByText('Test Book 3')).toBeInTheDocument()
     })
@@ -186,7 +190,7 @@ describe('LibraryView Component', () => {
 
       // Assert
       expect(
-        screen.getByText('Trascina qui il tuo primo libro per iniziare')
+        screen.getByText(/Trascina qui il tuo primo libro per iniziare/i)
       ).toBeInTheDocument()
     })
 
@@ -198,7 +202,7 @@ describe('LibraryView Component', () => {
       render(<LibraryView {...props} />)
 
       // Assert
-      expect(screen.getByText('Nessun libro in questa collezione')).toBeInTheDocument()
+      expect(screen.getByText(/Nessun libro in questa collezione/i)).toBeInTheDocument()
     })
 
     it('should show add book button in empty state', () => {
@@ -208,8 +212,8 @@ describe('LibraryView Component', () => {
       // Act
       render(<LibraryView {...props} />)
 
-      // Assert
-      expect(screen.getByText(/Aggiungi Libro/i)).toBeInTheDocument()
+      // Assert - Using getAllByText as there might be one in header and one in empty state
+      expect(screen.getAllByText(/Aggiungi Libro/i).length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -219,14 +223,14 @@ describe('LibraryView Component', () => {
       render(<LibraryView {...defaultProps} />)
 
       // Assert
-      const searchInput = screen.getByPlaceholderText('Cerca...')
+      const searchInput = screen.getByPlaceholderText(/Cerca libri.../i)
       expect(searchInput).toBeInTheDocument()
     })
 
     it('should call onSearchChange when search input changes', async () => {
       // Arrange
       render(<LibraryView {...defaultProps} />)
-      const searchInput = screen.getByPlaceholderText('Cerca...') as HTMLInputElement
+      const searchInput = screen.getByPlaceholderText(/Cerca libri.../i) as HTMLInputElement
 
       // Act
       fireEvent.change(searchInput, { target: { value: 'test query' } })
@@ -239,35 +243,61 @@ describe('LibraryView Component', () => {
   })
 
   describe('Sort Functionality', () => {
-    it('should render sort select', () => {
+    it('should render sort select', async () => {
       // Act
       render(<LibraryView {...defaultProps} />)
+      
+      // Open settings first
+      const settingsButton = screen.getByLabelText(/Apri impostazioni/i)
+      fireEvent.click(settingsButton)
 
       // Assert
-      const select = document.querySelector('.library-sort-select')
+      const select = document.querySelector('.library-settings-select')
       expect(select).toBeInTheDocument()
     })
 
-    it('should have sort options for recent, title, and author', () => {
+    it('should have sort options for recent, title, and author', async () => {
       // Act
       render(<LibraryView {...defaultProps} />)
+      
+      // Open settings
+      const settingsButton = screen.getByLabelText(/Apri impostazioni/i)
+      fireEvent.click(settingsButton)
 
       // Assert
       expect(screen.getByText('Recenti')).toBeInTheDocument()
-      expect(screen.getByText('A-Z')).toBeInTheDocument()
-      expect(screen.getByText('Autore')).toBeInTheDocument()
+      expect(screen.getByText('Titolo')).toBeInTheDocument()
+      // Using getAllByText as "Autore" might appear in select and display options
+      expect(screen.getAllByText('Autore').length).toBeGreaterThanOrEqual(1)
     })
 
-    it('should call onSortChange when sort selection changes', () => {
+    it('should sort books by title and respect direction controls', () => {
       // Arrange
-      render(<LibraryView {...defaultProps} />)
-      const select = document.querySelector('.library-sort-select') as HTMLSelectElement
+      const books: Book[] = [
+        { id: 'a', title: 'Beta', author: 'A', progress: 0, addedAt: Date.now() - 1000 },
+        { id: 'b', title: 'Alpha', author: 'B', progress: 0, addedAt: Date.now() - 2000 },
+        { id: 'c', title: 'Gamma', author: 'C', progress: 0, addedAt: Date.now() - 3000 },
+      ]
+      const props = { ...defaultProps, library: books, filteredLibrary: books }
+      render(<LibraryView {...props} />)
 
-      // Act
+      // Open settings and choose title sort (default direction is desc)
+      fireEvent.click(screen.getByLabelText(/Apri impostazioni/i))
+      const select = screen.getByLabelText(/Ordina per/i) as HTMLSelectElement
       fireEvent.change(select, { target: { value: 'title' } })
 
-      // Assert
-      expect(mockOnSortChange).toHaveBeenCalledWith('title')
+      const getRenderedTitles = () =>
+        screen.getAllByTestId(/book-card-/).map((card) => {
+          const titleEl = card.querySelector('span')
+          return titleEl?.textContent || ''
+        })
+
+      // Desc by title: Gamma, Beta, Alpha
+      expect(getRenderedTitles()).toEqual(['Gamma', 'Beta', 'Alpha'])
+
+      // Switch to ascending
+      fireEvent.click(screen.getByLabelText(/Ordine Crescente/i))
+      expect(getRenderedTitles()).toEqual(['Alpha', 'Beta', 'Gamma'])
     })
   })
 
@@ -302,7 +332,9 @@ describe('LibraryView Component', () => {
     it('should handle drag over event', () => {
       // Arrange
       render(<LibraryView {...defaultProps} />)
-      const container = document.querySelector('.library-view')!
+      const container = document.querySelector('.library-view')
+      expect(container).toBeTruthy()
+      if (!container) return
 
       // Act
       fireEvent.dragOver(container, {
@@ -316,7 +348,9 @@ describe('LibraryView Component', () => {
     it('should handle drag leave event', () => {
       // Arrange
       render(<LibraryView {...defaultProps} />)
-      const container = document.querySelector('.library-view')!
+      const container = document.querySelector('.library-view')
+      expect(container).toBeTruthy()
+      if (!container) return
 
       // Act
       fireEvent.dragLeave(container)
@@ -328,7 +362,9 @@ describe('LibraryView Component', () => {
     it('should handle file drop event', () => {
       // Arrange
       render(<LibraryView {...defaultProps} />)
-      const container = document.querySelector('.library-view')!
+      const container = document.querySelector('.library-view')
+      expect(container).toBeTruthy()
+      if (!container) return
       const file = new File(['content'], 'test.epub', { type: 'application/epub+zip' })
 
       const dropEvent = new Event('drop', {
@@ -372,13 +408,17 @@ describe('LibraryView Component', () => {
       expect(mockOnLoadBook).toHaveBeenCalledWith(null, mockBooks[0].cfi, mockBooks[0].id)
     })
 
-    it('should call onDeleteBook when delete button is clicked', () => {
+    it('should call onDeleteBook when delete button is clicked', async () => {
       // Arrange
       render(<LibraryView {...defaultProps} />)
       const deleteButton = within(screen.getByTestId('book-card-1')).getByText('Delete')
 
       // Act
       fireEvent.click(deleteButton)
+      
+      // Now a dialog should appear, click confirm
+      const confirmButton = screen.getByText('Elimina')
+      fireEvent.click(confirmButton)
 
       // Assert
       expect(mockOnDeleteBook).toHaveBeenCalledWith('1')
@@ -391,14 +431,14 @@ describe('LibraryView Component', () => {
       render(<LibraryView {...defaultProps} />)
 
       // Assert
-      expect(screen.getByText(/Continua:/i)).toBeInTheDocument()
-      expect(screen.getByText('Test Book 1')).toBeInTheDocument()
+      expect(screen.getByLabelText(/Continua:/i)).toBeInTheDocument()
+      expect(screen.getAllByText('Test Book 1').length).toBeGreaterThanOrEqual(1)
     })
 
     it('should call onLoadBook with book CFI and ID when resume button clicked', () => {
       // Arrange
       render(<LibraryView {...defaultProps} />)
-      const resumeButton = screen.getByText(/Continua:/)
+      const resumeButton = screen.getByLabelText(/Continua:/i)
 
       // Act
       fireEvent.click(resumeButton)
@@ -453,7 +493,7 @@ describe('LibraryView Component', () => {
       render(<LibraryView {...defaultProps} />)
 
       // Assert
-      expect(screen.getByText('Aggiungi')).toBeInTheDocument()
+      expect(screen.getByText(/Aggiungi Libro/i)).toBeInTheDocument()
     })
 
     it('should show regenerate covers button when books have missing covers', () => {
@@ -487,3 +527,5 @@ describe('LibraryView Component', () => {
     })
   })
 })
+
+

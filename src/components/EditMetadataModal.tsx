@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Image as ImageIcon, Save, RefreshCw, List, Upload, ExternalLink, Check } from 'lucide-react'
+import { X, Image as ImageIcon, Save, RefreshCw, Upload, Check } from 'lucide-react'
 import { useFocusTrap } from '../hooks'
 import { MetadataService, type WebMetadata } from '../services/MetadataService'
 import type { Book } from '../types'
@@ -31,6 +31,8 @@ export default function EditMetadataModal({
   // Web Metadata state
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<WebMetadata[]>([])
+  const [selectedResult, setSelectedResult] = useState<WebMetadata | null>(null)
+  const [searchWarning, setSearchWarning] = useState<string | null>(null)
   const [showSearchResults, setShowSearchResults] = useState(false)
 
   // Initialize form when book changes or modal opens
@@ -41,6 +43,8 @@ export default function EditMetadataModal({
       setTags(book.tags ? book.tags.join(', ') : '')
       setCoverUrl(book.cover || '')
       setSearchResults([])
+      setSearchWarning(null)
+      setSelectedResult(null)
       setShowSearchResults(false)
     }
   }, [isOpen, book])
@@ -67,12 +71,30 @@ export default function EditMetadataModal({
     if (!title.trim()) return
 
     setIsSearching(true)
+    setSearchWarning(null)
+    setSelectedResult(null)
     try {
-      const results = await MetadataService.searchMetadata(title, author)
+      const { results, googleFailed, openLibraryFailed, itunesFailed } = await MetadataService.searchMetadata(title, author)
       setSearchResults(results)
+
+      if (results.length === 0) {
+        setSearchWarning('Nessun risultato trovato. Prova a modificare titolo o autore.')
+      } else {
+        const failed = [
+          googleFailed && 'Google Books',
+          openLibraryFailed && 'Open Library',
+          itunesFailed && 'iTunes'
+        ].filter(Boolean)
+        if (failed.length > 0 && failed.length < 3) {
+          setSearchWarning(`${failed.join(', ')} non disponibile.`)
+        }
+      }
+
       setShowSearchResults(true)
     } catch (error) {
       console.error('Search error:', error)
+      setSearchWarning('Errore durante la ricerca.')
+      setShowSearchResults(true)
     } finally {
       setIsSearching(false)
     }
@@ -199,7 +221,20 @@ export default function EditMetadataModal({
                 {/* Right Column: Fields */}
                 <div className="edit-metadata__fields-col">
                   <div className="form-group">
-                    <label htmlFor="meta-title">Titolo</label>
+                    <div className="form-group__label-row">
+                      <label htmlFor="meta-title">Titolo</label>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        style={{ fontSize: '0.7rem', padding: '0.4rem 1rem' }}
+                        onClick={handleSearchMetadata}
+                        disabled={isSearching || !title.trim()}
+                        title="Cerca metadati su Google Books, Open Library e iTunes"
+                      >
+                        {isSearching ? <RefreshCw size={13} className="spin" /> : <RefreshCw size={13} />}
+                        {isSearching ? 'Ricerca...' : 'Cerca online'}
+                      </button>
+                    </div>
                     <input
                       id="meta-title"
                       type="text"
@@ -209,7 +244,7 @@ export default function EditMetadataModal({
                       className="form-control"
                     />
                   </div>
-                  
+
                   <div className="form-group">
                     <label htmlFor="meta-author">Autore</label>
                     <input
@@ -232,26 +267,6 @@ export default function EditMetadataModal({
                       className="form-control"
                     />
                   </div>
-                </div>
-              </div>
-
-              {/* Tools Section */}
-              <div className="edit-metadata__tools">
-                <div className="tools-section-title">Strumenti Avanzati</div>
-                <div className="tools-grid">
-                  <button 
-                    type="button" 
-                    className={`tool-button ${isSearching ? 'searching' : ''}`} 
-                    onClick={handleSearchMetadata}
-                    disabled={isSearching || !title.trim()}
-                  >
-                    {isSearching ? <RefreshCw size={18} className="spin" /> : <RefreshCw size={18} />}
-                    <span>{isSearching ? 'Ricerca...' : 'Auto-compila da Web'}</span>
-                  </button>
-                  <button type="button" className="tool-button" disabled title="Prossimamente">
-                    <List size={18} />
-                    <span>Gestione Indice (TOC)</span>
-                  </button>
                 </div>
               </div>
 
@@ -297,25 +312,64 @@ export default function EditMetadataModal({
                     </button>
                   </div>
                   <div className="web-search-results__list">
-                    {searchResults.length === 0 ? (
-                      <div className="no-results">Nessun risultato trovato. Prova a modificare titolo o autore.</div>
-                    ) : (
-                      searchResults.map((result, idx) => (
-                        <div key={idx} className="search-result-item" onClick={() => applyWebMetadata(result)}>
+                    {searchWarning && searchResults.length === 0 && (
+                      <div className="no-results">
+                        <p>{searchWarning}</p>
+                      </div>
+                    )}
+                    {searchWarning && searchResults.length > 0 && (
+                      <div className="search-warning">{searchWarning}</div>
+                    )}
+                    {!searchWarning && searchResults.length === 0 && (
+                      <div className="no-results">
+                        <p>Nessun risultato trovato.</p>
+                        <p className="no-results__hint">Prova a modificare il titolo o l'autore nella ricerca.</p>
+                      </div>
+                    )}
+                    {searchResults.map((result, idx) => {
+                        const isSelected = selectedResult === result
+                        return (
+                        <div
+                          key={idx}
+                          className={`search-result-item ${isSelected ? 'search-result-item--selected' : ''}`}
+                          onClick={() => setSelectedResult(isSelected ? null : result)}
+                        >
                           <div className="result-cover">
                             {result.cover ? <img src={result.cover} alt="" /> : <ImageIcon size={20} />}
                           </div>
                           <div className="result-info">
                             <div className="result-title">{result.title}</div>
                             <div className="result-author">{result.author}</div>
-                            <div className="result-source">Fonte: {result.source === 'google' ? 'Google Books' : 'Open Library'}</div>
+                            <div className="result-source">{result.source === 'google' ? 'Google Books' : result.source === 'itunes' ? 'iTunes' : 'Open Library'}</div>
                           </div>
-                          <button className="apply-result-btn" title="Applica questi metadati">
-                            <Check size={16} />
-                          </button>
+                          <div className={`result-check ${isSelected ? 'result-check--active' : ''}`}>
+                            {isSelected && <Check size={16} />}
+                          </div>
                         </div>
-                      ))
-                    )}
+                        )
+                    })}
+                  </div>
+                  <div className="web-search-results__actions">
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      onClick={() => setShowSearchResults(false)}
+                    >
+                      Annulla
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      disabled={!selectedResult}
+                      onClick={() => {
+                        if (selectedResult) {
+                          applyWebMetadata(selectedResult)
+                        }
+                      }}
+                    >
+                      <Check size={16} />
+                      Applica
+                    </button>
                   </div>
                 </motion.div>
               )}

@@ -368,10 +368,10 @@ describe('useAppStore', () => {
       const fontIds = FONT_OPTIONS.map((f: typeof FONT_OPTIONS[number]) => f.id)
 
       // Assert
-      expect(fontIds).toContain('lora')
-      expect(fontIds).toContain('atkinson')
-      expect(fontIds).toContain('bitter')
-      expect(fontIds).toContain('dyslexic')
+      expect(fontIds).toContain('georgia')
+      expect(fontIds).toContain('palatino')
+      expect(fontIds).toContain('times')
+      expect(fontIds).toContain('cambria')
     })
 
     it('should have valid font option structure', () => {
@@ -382,11 +382,11 @@ describe('useAppStore', () => {
       expect(firstFont).toHaveProperty('id')
       expect(firstFont).toHaveProperty('name')
       expect(firstFont).toHaveProperty('family')
-      expect(firstFont).toHaveProperty('desc')
+      expect(firstFont).toHaveProperty('description')
       expect(typeof firstFont.id).toBe('string')
       expect(typeof firstFont.name).toBe('string')
       expect(typeof firstFont.family).toBe('string')
-      expect(typeof firstFont.desc).toBe('string')
+      expect(typeof firstFont.description).toBe('string')
     })
   })
 

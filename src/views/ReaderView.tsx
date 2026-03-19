@@ -1,35 +1,29 @@
 import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  BookOpen,
   Settings,
   X,
   List,
   Bookmark,
   Search,
-  ChevronUp,
+  Menu,
   Headphones,
   Maximize,
   Quote,
-  Minimize
+  Minimize,
+  PanelRightClose
 } from 'lucide-react'
 import HighlightPopup from '../components/HighlightPopup'
+import QuoteGenerator from '../components/QuoteGenerator'
+import { THEMES } from '../config/themes'
 import { FONT_OPTIONS } from '../config/fonts'
-import type { Bookmark as BookmarkType, TOCEntry, Theme } from '../types'
+import { useAppStore } from '../store/useAppStore'
+import type { Bookmark as BookmarkType, TOCEntry, Theme, SearchResult, Highlight } from '../types'
 
-const THEMES: Record<string, Theme> = {
-  light: { name: 'Chiaro', body: { background: '#f9f7f2', color: '#1a1a1a' } },
-  sepia: { name: 'Sepia', body: { background: '#f4ecd8', color: '#5b4636' } },
-  dark: { name: 'Scuro', body: { background: '#121212', color: '#e0e0e0' } }
-}
-
-interface SearchResult {
-  cfi: string
-  snippet: string
-  href: string
-}
+type ActivePanel = 'toc' | 'bookmarks' | 'search' | 'settings' | null
 
 interface ReaderViewProps {
   viewerRef: RefObject<HTMLDivElement>
@@ -39,6 +33,7 @@ interface ReaderViewProps {
     display(location: string): void
     next(): void
     prev(): void
+    getContents(): any[]
     themes: {
       override(prop: string, value: string, important: boolean): void
       select(name: string): void
@@ -97,38 +92,43 @@ const ReaderView = ({
   loadingStep,
   pageInfo
 }: ReaderViewProps) => {
-  const [showSettings, setShowSettings] = useState(false)
-  const [showTOC, setShowTOC] = useState(false)
-  const [showBookmarks, setShowBookmarks] = useState(false)
-  const [showSearch, setShowSearch] = useState(false)
+  const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [menuVisible, setMenuVisible] = useState(true)
   const [showFontPanel, setShowFontPanel] = useState(false)
   const [zenMode, setZenMode] = useState(false)
   const [showQuoteGenerator, setShowQuoteGenerator] = useState(false)
   const [toolbarVisible, setToolbarVisible] = useState(true)
+  const [isHoveringToolbar, setIsHoveringToolbar] = useState(false)
   const toolbarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Global state for menu visibility
+  const menuVisible = useAppStore(state => state.menuVisible)
+  const setMenuVisible = useAppStore(state => state.setMenuVisible)
+
   // Determine if any panel is open
-  const anyPanelOpen = showTOC || showBookmarks || showSearch || showSettings
+  const anyPanelOpen = activePanel !== null
 
   // Close all panels helper
   const closeAllPanels = useCallback(() => {
-    setShowTOC(false)
-    setShowBookmarks(false)
-    setShowSearch(false)
-    setShowSettings(false)
+    setActivePanel(null)
+  }, [])
+
+  // Toggle panel helper
+  const togglePanel = useCallback((panel: ActivePanel) => {
+    setActivePanel(prev => prev === panel ? null : panel)
   }, [])
 
   // Toolbar auto-hide: show on mouse move, hide after 3s inactivity
   useEffect(() => {
-    if (zenMode) return
+    if (zenMode || !menuVisible) return
 
     const resetTimer = () => {
       setToolbarVisible(true)
       if (toolbarTimerRef.current) clearTimeout(toolbarTimerRef.current)
-      if (!anyPanelOpen) {
+      
+      // Prevent hiding if a panel is open OR if mouse is hovering over the toolbar
+      if (!anyPanelOpen && !isHoveringToolbar) {
         toolbarTimerRef.current = setTimeout(() => setToolbarVisible(false), 3000)
       }
     }
@@ -146,16 +146,12 @@ const ReaderView = ({
       window.removeEventListener('keydown', resetTimer)
       if (toolbarTimerRef.current) clearTimeout(toolbarTimerRef.current)
     }
-  }, [zenMode, anyPanelOpen])
+  }, [zenMode, anyPanelOpen, isHoveringToolbar, menuVisible])
 
-  // Note: toolbar stays visible when anyPanelOpen because the timer
-  // only starts when !anyPanelOpen (see resetTimer above)
-
-  // Keyboard navigation - use ref to avoid re-attaching listeners when callbacks change
+  // Keyboard navigation
   const onPrevPageRef = useRef(onPrevPage)
   const onNextPageRef = useRef(onNextPage)
 
-  // Update refs when callbacks change
   useEffect(() => {
     onPrevPageRef.current = onPrevPage
     onNextPageRef.current = onNextPage
@@ -163,16 +159,26 @@ const ReaderView = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return
       }
 
-      // ESC to exit zen mode
-      if (e.key === 'Escape' && zenMode) {
-        e.preventDefault()
-        setZenMode(false)
-        return
+      if (e.key === 'Escape') {
+        if (showQuoteGenerator) {
+          e.preventDefault()
+          setShowQuoteGenerator(false)
+          return
+        }
+        if (anyPanelOpen) {
+          e.preventDefault()
+          closeAllPanels()
+          return
+        }
+        if (zenMode) {
+          e.preventDefault()
+          setZenMode(false)
+          return
+        }
       }
 
       if (e.key === 'ArrowLeft') {
@@ -186,7 +192,7 @@ const ReaderView = ({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [zenMode]) // Re-attach when zenMode changes
+  }, [zenMode, anyPanelOpen, closeAllPanels, showQuoteGenerator])
 
   const performSearch = useCallback(async () => {
     if (!book || !searchQuery.trim()) return
@@ -196,7 +202,6 @@ const ReaderView = ({
     const searchLower = searchQuery.toLowerCase()
 
     try {
-      // Get all sections from the book's spine
       const sections = (book as any).spine?.items || (book as any).spine?.spineItems || []
 
       if (!sections || sections.length === 0) {
@@ -206,7 +211,6 @@ const ReaderView = ({
 
       const searchPromises = sections.map(async (item: any) => {
         try {
-          // Load the section content
           const doc = await item.load(book)
           if (!doc || !doc.body) {
             item.unload?.()
@@ -243,18 +247,46 @@ const ReaderView = ({
   const goToSearchResult = (cfi: string) => {
     if (rendition) {
       rendition.display(cfi)
-      setShowSearch(false)
+      closeAllPanels()
     }
   }
 
   const handleFontSelect = (fontId: string) => {
     onReadingFontChange(fontId)
-    // Apply font immediately via rendition
     if (rendition) {
       const font = FONT_OPTIONS.find(f => f.id === fontId)?.family || 'Lora'
       rendition.themes.override('font-family', font, true)
     }
   }
+
+  const handleTTS = useCallback(() => {
+    if (!rendition) return
+    window.speechSynthesis.cancel() 
+    
+    try {
+      const contents = rendition.getContents()
+      let textToRead = ''
+      
+      if (Array.isArray(contents) && contents.length > 0) {
+        contents.forEach(content => {
+          if (content && content.document && content.document.body) {
+            textToRead += content.document.body.innerText + ' '
+          }
+        })
+      }
+      
+      if (textToRead.trim()) {
+        const utterance = new SpeechSynthesisUtterance(textToRead)
+        utterance.lang = 'it-IT'
+        utterance.rate = 1
+        window.speechSynthesis.speak(utterance)
+      } else {
+        console.warn('[TTS] No text found to read on the current page.')
+      }
+    } catch (e) {
+      console.error('[TTS] Error extracting text for speech:', e)
+    }
+  }, [rendition])
 
   return (
     <motion.div
@@ -282,18 +314,19 @@ const ReaderView = ({
         }}
       />
 
-      {/* Menu Toggle Button */}
+      {/* Menu Toggle Button (when hidden) */}
       <AnimatePresence>
         {!menuVisible && (
           <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
             className="menu-toggle glass-panel"
             onClick={() => setMenuVisible(true)}
-            title="Mostra menu"
+            title="Mostra barra strumenti"
+            style={{ position: 'fixed', right: '1rem', top: 'calc(var(--title-bar-height) + 68px)', zIndex: 90 }}
           >
-            <ChevronUp size={20} />
+            <Menu size={20} />
           </motion.button>
         )}
       </AnimatePresence>
@@ -306,9 +339,11 @@ const ReaderView = ({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="vertical-toolbar"
+            className="vertical-toolbar glass-panel"
             role="toolbar"
             aria-label="Controlli di lettura"
+            onMouseEnter={() => setIsHoveringToolbar(true)}
+            onMouseLeave={() => setIsHoveringToolbar(false)}
           >
             {/* TOP: Navigation & Content */}
             <div className="toolbar-group" role="group" aria-label="Navigazione">
@@ -318,19 +353,30 @@ const ReaderView = ({
                 title="Torna alla Libreria"
                 aria-label="Torna alla libreria"
               >
-                <BookOpen size={18} aria-hidden="true" />
+                <ArrowLeft size={20} aria-hidden="true" />
               </button>
               <button
-                className={`toolbar-btn ${showTOC ? 'active' : ''}`}
-                onClick={() => {
-                  setShowTOC(!showTOC)
-                  setShowBookmarks(false)
-                  setShowSearch(false)
-                  setShowSettings(false)
-                }}
+                className="toolbar-btn"
+                onClick={onPrevPage}
+                title="Pagina precedente"
+                aria-label="Vai alla pagina precedente"
+              >
+                <ChevronLeft size={18} aria-hidden="true" />
+              </button>
+              <button
+                className="toolbar-btn"
+                onClick={onNextPage}
+                title="Pagina successiva"
+                aria-label="Vai alla pagina successiva"
+              >
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+              <button
+                className={`toolbar-btn ${activePanel === 'toc' ? 'active' : ''}`}
+                onClick={() => togglePanel('toc')}
                 title="Indice"
                 aria-label="Mostra indice"
-                aria-pressed={showTOC}
+                aria-pressed={activePanel === 'toc'}
               >
                 <List size={18} aria-hidden="true" />
               </button>
@@ -341,38 +387,28 @@ const ReaderView = ({
             {/* CENTER: Reading Tools */}
             <div className="toolbar-group" role="group" aria-label="Strumenti di lettura">
               <button
-                className={`toolbar-btn ${showBookmarks ? 'active' : ''}`}
-                onClick={() => {
-                  setShowBookmarks(!showBookmarks)
-                  setShowTOC(false)
-                  setShowSearch(false)
-                  setShowSettings(false)
-                }}
+                className={`toolbar-btn ${activePanel === 'bookmarks' ? 'active' : ''}`}
+                onClick={() => togglePanel('bookmarks')}
                 title="Segnalibri"
                 aria-label="Mostra segnalibri"
-                aria-pressed={showBookmarks}
+                aria-pressed={activePanel === 'bookmarks'}
               >
                 <Bookmark size={18} aria-hidden="true" />
               </button>
 
               <button
-                className={`toolbar-btn ${showSearch ? 'active' : ''}`}
-                onClick={() => {
-                  setShowSearch(!showSearch)
-                  setShowTOC(false)
-                  setShowBookmarks(false)
-                  setShowSettings(false)
-                }}
+                className={`toolbar-btn ${activePanel === 'search' ? 'active' : ''}`}
+                onClick={() => togglePanel('search')}
                 title="Cerca"
                 aria-label="Cerca nel libro"
-                aria-pressed={showSearch}
+                aria-pressed={activePanel === 'search'}
               >
                 <Search size={18} aria-hidden="true" />
               </button>
 
               <button
                 className={`toolbar-btn ${showQuoteGenerator ? 'active' : ''}`}
-                onClick={() => setShowQuoteGenerator(!showQuoteGenerator)}
+                onClick={() => setShowQuoteGenerator(true)}
                 title="Crea citazione"
                 aria-label="Genera citazione"
                 aria-pressed={showQuoteGenerator}
@@ -382,13 +418,8 @@ const ReaderView = ({
 
               <button
                 className="toolbar-btn"
-                onClick={() => {
-                  const utterance = new SpeechSynthesisUtterance()
-                  utterance.lang = 'it-IT'
-                  utterance.rate = 1
-                  window.speechSynthesis.speak(utterance)
-                }}
-                title="Leggi ad alta voce"
+                onClick={handleTTS}
+                title="Leggi ad alta voce la pagina corrente"
                 aria-label="Text to speech"
               >
                 <Headphones size={18} aria-hidden="true" />
@@ -409,40 +440,25 @@ const ReaderView = ({
               </button>
 
               <button
-                className={`toolbar-btn ${showSettings ? 'active' : ''}`}
-                onClick={() => {
-                  setShowSettings(!showSettings)
-                  setShowTOC(false)
-                  setShowBookmarks(false)
-                  setShowSearch(false)
-                }}
+                className={`toolbar-btn ${activePanel === 'settings' ? 'active' : ''}`}
+                onClick={() => togglePanel('settings')}
                 title="Impostazioni"
                 aria-label="Impostazioni di lettura"
-                aria-pressed={showSettings}
+                aria-pressed={activePanel === 'settings'}
               >
                 <Settings size={18} aria-hidden="true" />
               </button>
-            </div>
-
-            <div className="toolbar-divider" />
-
-            {/* Page Navigation */}
-            <div className="toolbar-group" role="group" aria-label="Navigazione pagina">
+              
               <button
                 className="toolbar-btn"
-                onClick={onPrevPage}
-                title="Pagina precedente"
-                aria-label="Vai alla pagina precedente"
+                onClick={() => {
+                  setMenuVisible(false)
+                  closeAllPanels()
+                }}
+                title="Nascondi barra strumenti"
+                aria-label="Nascondi barra strumenti"
               >
-                <ChevronLeft size={18} aria-hidden="true" />
-              </button>
-              <button
-                className="toolbar-btn"
-                onClick={onNextPage}
-                title="Pagina successiva"
-                aria-label="Vai alla pagina successiva"
-              >
-                <ChevronRight size={18} aria-hidden="true" />
+                <PanelRightClose size={18} aria-hidden="true" />
               </button>
             </div>
           </motion.div>
@@ -465,7 +481,7 @@ const ReaderView = ({
 
       {/* TOC Panel - slides from right */}
       <AnimatePresence>
-        {showTOC && (
+        {activePanel === 'toc' && (
           <motion.div
             initial={{ x: 380, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -475,7 +491,7 @@ const ReaderView = ({
           >
             <div className="settings-header">
               <h4>Indice</h4>
-              <button onClick={() => setShowTOC(false)}>
+              <button onClick={closeAllPanels}>
                 <X size={18} />
               </button>
             </div>
@@ -491,9 +507,9 @@ const ReaderView = ({
                     className="toc-item"
                     onClick={() => {
                       onGoToTOCItem(item.href)
-                      setShowTOC(false)
+                      closeAllPanels()
                     }}
-                    style={{ paddingLeft: `${(item as TOCEntry & { level?: number }).level || 0 * 20 + 16}px` }}
+                    style={{ paddingLeft: `${(((item as TOCEntry & { level?: number }).level || 0) * 20) + 16}px` }}
                   >
                     {item.label}
                   </button>
@@ -506,7 +522,7 @@ const ReaderView = ({
 
       {/* Bookmarks Panel - slides from right */}
       <AnimatePresence>
-        {showBookmarks && (
+        {activePanel === 'bookmarks' && (
           <motion.div
             initial={{ x: 380, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -516,7 +532,7 @@ const ReaderView = ({
           >
             <div className="settings-header">
               <h4>Segnalibri</h4>
-              <button onClick={() => setShowBookmarks(false)}>
+              <button onClick={closeAllPanels}>
                 <X size={18} />
               </button>
             </div>
@@ -569,7 +585,7 @@ const ReaderView = ({
 
       {/* Search Panel - slides from right */}
       <AnimatePresence>
-        {showSearch && (
+        {activePanel === 'search' && (
           <motion.div
             initial={{ x: 380, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -579,7 +595,7 @@ const ReaderView = ({
           >
             <div className="settings-header">
               <h4 className="panel-title">Ricerca</h4>
-              <button onClick={() => setShowSearch(false)}>
+              <button onClick={closeAllPanels}>
                 <X size={18} />
               </button>
             </div>
@@ -621,7 +637,7 @@ const ReaderView = ({
 
       {/* Settings Panel */}
       <AnimatePresence>
-        {showSettings && (
+        {activePanel === 'settings' && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -630,7 +646,7 @@ const ReaderView = ({
           >
             <div className="settings-header">
               <h4>Impostazioni di lettura</h4>
-              <button onClick={() => setShowSettings(false)}>
+              <button onClick={closeAllPanels}>
                 <X size={18} />
               </button>
             </div>
@@ -717,6 +733,15 @@ const ReaderView = ({
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* Quote Generator Modal */}
+      <QuoteGenerator
+        isVisible={showQuoteGenerator}
+        onClose={() => setShowQuoteGenerator(false)}
+        initialText=""
+        bookTitle={metadata?.title || 'Libro Sconosciuto'}
+        author={metadata?.creator || 'Autore Sconosciuto'}
+      />
 
       {/* Zen Mode Exit Button */}
       <AnimatePresence>

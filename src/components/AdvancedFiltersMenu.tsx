@@ -1,7 +1,7 @@
 import React, { memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Filter, X } from 'lucide-react'
-import { useLibraryStore } from '../store'
+import { useLibraryStore } from '../store/useLibraryStore'
 import { useFocusTrap } from '../hooks'
 import type { AdvancedFilters } from '../store/useLibraryStore'
 
@@ -21,7 +21,6 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
 
   useFocusTrap(dropdownRef, isOpen)
 
-  // Handle click outside
   React.useEffect(() => {
     if (!isOpen) return
 
@@ -47,7 +46,7 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
     }
   }, [isOpen, onClose, anchorRef])
 
-  const handleFilterChange = (key: keyof AdvancedFilters, value: any) => {
+  const handleFilterChange = (key: keyof AdvancedFilters, value: string | number | boolean | undefined) => {
     const newFilters = { ...advancedFilters, [key]: value }
     if (value === '' || value === undefined) {
       delete newFilters[key]
@@ -65,7 +64,7 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
       {isOpen && (
         <motion.div
           ref={dropdownRef}
-          className="library-settings-dropdown"
+          className="library-settings-dropdown library-filters-dropdown"
           initial={{ opacity: 0, y: -10, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -74,15 +73,16 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
           aria-label="Filtri Avanzati"
         >
           <div className="library-settings-header">
-            <h3 className="library-settings-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Filter size={16} /> Filtri Avanzati
-            </h3>
+            <div className="advanced-filters-menu__heading">
+              <Filter size={16} aria-hidden="true" />
+              <span className="library-settings-title">Filtri Avanzati</span>
+            </div>
             <button onClick={onClose} className="library-settings-close-btn" aria-label="Chiudi menu" title="Chiudi (Esc)">
               <X size={18} />
             </button>
           </div>
 
-          <div className="settings-content">
+          <div className="advanced-filters-menu__content">
             <div className="library-settings-section">
               <label htmlFor="genre-filter" className="library-settings-label">Genere</label>
               <input
@@ -91,8 +91,7 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
                 placeholder="Es. Sci-Fi, Fantasy"
                 value={advancedFilters.genre || ''}
                 onChange={(e) => handleFilterChange('genre', e.target.value)}
-                className="library-search-input"
-                style={{ width: '100%', marginBottom: '4px' }}
+                className="library-search-input advanced-filters-menu__search"
               />
             </div>
 
@@ -129,14 +128,13 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
               </div>
             </div>
 
-            <div className="library-settings-section" style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+            <div className="library-settings-section advanced-filters-menu__actions">
               <button
-                className="primary-button-small"
+                className="primary-button-small prominent-action advanced-filters-menu__reset"
                 onClick={handleReset}
-                style={{ width: '100%', justifyContent: 'center' }}
                 aria-label="Reset filtri"
               >
-                Reset filtri
+                <span>Reset filtri</span>
               </button>
             </div>
           </div>

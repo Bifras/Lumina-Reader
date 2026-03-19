@@ -559,7 +559,7 @@ describe('ReaderView Component', () => {
       render(<ReaderView {...defaultProps} />)
 
       // Assert
-      expect(screen.queryByText('Tipografia')).not.toBeInTheDocument()
+      expect(screen.queryByText('Impostazioni di lettura')).not.toBeInTheDocument()
     })
 
     it('should show quick typography panel when button is clicked', async () => {
@@ -568,7 +568,7 @@ describe('ReaderView Component', () => {
 
       // Find and click the typography button
       const typographyButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Cambia tipografia'
+        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
       )
 
       // Act
@@ -578,7 +578,7 @@ describe('ReaderView Component', () => {
 
       // Assert
       await waitFor(() => {
-        expect(screen.getByText('Tipografia')).toBeInTheDocument()
+        expect(screen.getByText('Impostazioni di lettura')).toBeInTheDocument()
       })
     })
 
@@ -588,13 +588,13 @@ describe('ReaderView Component', () => {
 
       // Open quick typography
       const typographyButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Cambia tipografia'
+        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
       )
       if (typographyButton) fireEvent.click(typographyButton)
 
       // Assert
       await waitFor(() => {
-        expect(screen.getByText('Dimensione')).toBeInTheDocument()
+        expect(screen.getByText('Dimensione testo')).toBeInTheDocument()
       })
     })
 
@@ -604,7 +604,7 @@ describe('ReaderView Component', () => {
 
       // Open quick typography
       const typographyButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Cambia tipografia'
+        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
       )
       if (typographyButton) fireEvent.click(typographyButton)
 
@@ -620,7 +620,7 @@ describe('ReaderView Component', () => {
 
       // Open quick typography
       const typographyButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Cambia tipografia'
+        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
       )
       if (typographyButton) fireEvent.click(typographyButton)
 

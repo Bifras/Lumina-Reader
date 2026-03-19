@@ -19,6 +19,7 @@ export interface Book {
   collection?: string // Primary collection name
   genre?: string // Book genre/category
   rating?: number // User rating 0-5 stars
+  tags?: string[] // User-defined tags/genres
 }
 
 /**

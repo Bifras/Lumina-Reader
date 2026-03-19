@@ -121,11 +121,12 @@ if (typeof global !== 'undefined') {
   })) as any
 
   // Mock ResizeObserver
-  (global as any).ResizeObserver = vi.fn(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-  })) as any
+  class MockResizeObserver {
+    observe = vi.fn()
+    unobserve = vi.fn()
+    disconnect = vi.fn()
+  }
+  (global as any).ResizeObserver = MockResizeObserver
 }
 
 // Suppress console errors in tests (optional - remove when debugging)

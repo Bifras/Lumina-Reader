@@ -132,10 +132,10 @@ export const FONT_OPTIONS: FontOption[] = [
   },
   {
     id: 'opendyslexic',
-    name: 'Verdana (Accessible)',
-    family: 'Verdana, sans-serif', // Using system font instead of OpenDyslexic
+    name: 'OpenDyslexic',
+    family: '"OpenDyslexic", Verdana, sans-serif',
     category: 'accessibility',
-    description: 'Font di sistema ottimizzato per leggibilità'
+    description: 'Font specifico per dislessia con base pesata'
   },
 
   // === MONOSPACE - Per codice, testi tecnici ===

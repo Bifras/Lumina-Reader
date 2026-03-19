@@ -14,7 +14,9 @@ export default defineConfig({
       'e2e/',
       'dist/',
       'release/',
-      'build/'
+      'build/',
+      '.kilocode/',
+      '.kimi/'
     ],
     coverage: {
       provider: 'v8',

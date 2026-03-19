@@ -21,9 +21,9 @@
 - [x] Task: Implement: Update CollectionSidebar and BookCard for new features. [dc27b98]
 - [x] Task: Write Tests: Advanced Filtering UI. [43639a6]
 - [x] Task: Implement: Add filter controls to LibraryView. [43639a6]
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: UI Implementation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: UI Implementation' (Protocol in workflow.md)
 
 ## Phase 4: Verification
-- [ ] Task: Run full suite of E2E tests with Playwright.
+- [~] Task: Run full suite of E2E tests with Playwright.
 - [ ] Task: Perform manual performance profiling for large library loading.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Verification' (Protocol in workflow.md)

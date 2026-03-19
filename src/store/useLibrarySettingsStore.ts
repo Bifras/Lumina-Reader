@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export type ViewMode = 'grid' | 'list' | 'compact'
-export type LibraryTheme = 'auto' | 'light' | 'dark'
+export type LibraryTheme = 'auto' | 'light' | 'dark' | 'sepia'
 export type SortOption = 'recent' | 'title' | 'author' | 'progress' | 'added'
 export type GroupByOption = 'none' | 'author' | 'genre' | 'collection'
 
