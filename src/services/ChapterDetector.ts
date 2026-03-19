@@ -103,6 +103,7 @@ export class ChapterDetector {
   static async detectFromFile(buffer: ArrayBuffer): Promise<TOCEntry[]> {
     try {
       const zip = await this.loadZip(buffer)
+
       const opfPath = await this.findOPF(zip)
       if (!opfPath) return []
 
@@ -145,77 +146,85 @@ export class ChapterDetector {
    */
   private static async loadZip(buffer: ArrayBuffer): Promise<Record<string, string>> {
     const entries: Record<string, string> = {}
+    const view = new DataView(buffer)
 
-    try {
-      // Use DecompressionStream for deflate — but for ZIP we need a different approach
-      // Parse ZIP central directory manually
-      const view = new DataView(buffer)
-      let offset = buffer.byteLength - 22
+    // Find end of central directory signature (0x06054b50)
+    let eocdOffset = -1
+    for (let i = buffer.byteLength - 22; i >= 0; i--) {
+      if (view.getUint32(i, true) === 0x06054b50) {
+        eocdOffset = i
+        break
+      }
+    }
+    if (eocdOffset < 0) {
+      console.warn('[ChapterDetector] EOCD signature not found, buffer size:', buffer.byteLength)
+      return entries
+    }
 
-      // Find end of central directory signature (0x06054b50)
-      while (offset >= 0 && view.getUint32(offset, true) !== 0x06054b50) offset--
-      if (offset < 0) return entries
+    const centralDirSize = view.getUint32(eocdOffset + 12, true)
+    const centralDirOffset = view.getUint32(eocdOffset + 16, true)
 
-      const centralDirSize = view.getUint32(offset + 12, true)
-      const centralDirOffset = view.getUint32(offset + 16, true)
+    let pos = centralDirOffset
+    const dirEnd = centralDirOffset + centralDirSize
+    let entryCount = 0
 
-      // Parse central directory entries
-      let pos = centralDirOffset
-      const end = centralDirOffset + centralDirSize
+    while (pos < dirEnd) {
+      if (view.getUint32(pos, true) !== 0x02014b50) break
+      entryCount++
 
-      while (pos < end) {
-        if (view.getUint32(pos, true) !== 0x02014b50) break
+      const compMethod = view.getUint16(pos + 10, true)
+      const compSize = view.getUint32(pos + 20, true)
+      const uncompSize = view.getUint32(pos + 24, true)
+      const nameLen = view.getUint16(pos + 28, true)
+      const extraLen = view.getUint16(pos + 30, true)
+      const commentLen = view.getUint16(pos + 32, true)
+      const localHeaderOffset = view.getUint32(pos + 42, true)
 
-        const compMethod = view.getUint16(pos + 10, true)
-        const compSize = view.getUint32(pos + 20, true)
-        const uncompSize = view.getUint32(pos + 24, true)
-        const nameLen = view.getUint16(pos + 28, true)
-        const extraLen = view.getUint16(pos + 30, true)
-        const commentLen = view.getUint16(pos + 32, true)
-        const localHeaderOffset = view.getUint32(pos + 42, true)
+      const nameBytes = new Uint8Array(buffer, pos + 46, nameLen)
+      const name = new TextDecoder().decode(nameBytes)
 
-        const nameBytes = new Uint8Array(buffer, pos + 46, nameLen)
-        const name = new TextDecoder().decode(nameBytes)
-
-        // Only process .html/.xhtml files
-        if (/\.(html|xhtml|htm)$/i.test(name)) {
-          // Read local file header to get data offset
-          const localNameLen = view.getUint16(localHeaderOffset + 26, true)
-          const localExtraLen = view.getUint16(localHeaderOffset + 28, true)
-          const dataOffset = localHeaderOffset + 30 + localNameLen + localExtraLen
-
-          if (compMethod === 0) {
-            // Stored (no compression)
-            const data = new Uint8Array(buffer, dataOffset, uncompSize)
-            entries[name] = new TextDecoder().decode(data)
-          } else if (compMethod === 8) {
-            // Deflate
-            try {
-              const compData = new Uint8Array(buffer, dataOffset, compSize)
-              const ds = new DecompressionStream('deflate-raw')
-              const writer = ds.writable.getWriter()
-              writer.write(compData)
-              writer.close()
-              const reader = ds.readable.getReader()
-              const chunks: Uint8Array[] = []
-              while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-                chunks.push(value)
-              }
-              const totalLen = chunks.reduce((s, c) => s + c.length, 0)
-              const result = new Uint8Array(totalLen)
-              let off = 0
-              for (const c of chunks) { result.set(c, off); off += c.length }
-              entries[name] = new TextDecoder().decode(result)
-            } catch {}
-          }
+      if (/\.(html|xhtml|htm|opf|ncx|xml)$/i.test(name)) {
+        // Read local file header to get data offset
+        if (view.getUint32(localHeaderOffset, true) !== 0x04034b50) {
+          pos += 46 + nameLen + extraLen + commentLen
+          continue
         }
 
-        pos += 46 + nameLen + extraLen + commentLen
+        const localNameLen = view.getUint16(localHeaderOffset + 26, true)
+        const localExtraLen = view.getUint16(localHeaderOffset + 28, true)
+        const dataOffset = localHeaderOffset + 30 + localNameLen + localExtraLen
+
+        if (compMethod === 0) {
+          // Stored (no compression)
+          const data = new Uint8Array(buffer, dataOffset, uncompSize)
+          entries[name] = new TextDecoder().decode(data)
+        } else if (compMethod === 8) {
+          // Deflate
+          try {
+            const compData = new Uint8Array(buffer, dataOffset, compSize)
+            const ds = new DecompressionStream('deflate-raw')
+            const writer = ds.writable.getWriter()
+            await writer.write(compData)
+            await writer.close()
+            const reader = ds.readable.getReader()
+            const chunks: Uint8Array[] = []
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              chunks.push(value)
+            }
+            const totalLen = chunks.reduce((s, c) => s + c.length, 0)
+            const result = new Uint8Array(totalLen)
+            let off = 0
+            for (const chunk of chunks) { result.set(chunk, off); off += chunk.length }
+            entries[name] = new TextDecoder().decode(result)
+          } catch (e) {
+            console.warn(`[ChapterDetector] Deflate failed for ${name}:`, e)
+          }
+        }
       }
-    } catch (e) {
-      console.warn('[ChapterDetector] ZIP parse error:', e)
+
+      pos += 46 + nameLen + extraLen + commentLen
     }
 
     return entries
