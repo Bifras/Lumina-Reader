@@ -1,0 +1,8 @@
+{
+  "track_id": "chapter_detection_20260319",
+  "type": "bug",
+  "status": "new",
+  "created_at": "2026-03-19T14:55:00Z",
+  "updated_at": "2026-03-19T14:55:00Z",
+  "description": "Fa in modo che l'app legga il capitolo corrente correttamente e lo mostri nella barra superiore"
+}
