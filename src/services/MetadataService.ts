@@ -17,6 +17,20 @@ export interface MetadataSearchResult {
 }
 
 export class MetadataService {
+  private static TIMEOUT_MS = 8000
+
+  private static async timedFetch(url: string): Promise<Response | null> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), this.TIMEOUT_MS)
+    try {
+      return await fetch(url, { signal: controller.signal })
+    } catch {
+      return null
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   static async searchMetadata(title: string, author?: string): Promise<MetadataSearchResult> {
     const query = `${title}${author ? ` ${author}` : ''}`
 
@@ -40,16 +54,12 @@ export class MetadataService {
 
   private static async fetchFromGoogleBooks(query: string): Promise<WebMetadata[]> {
     try {
-      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`)
-
-      if (response.status === 429) {
-        console.warn('[MetadataService] Google Books quota exceeded (429)')
-        return []
-      }
-      if (!response.ok) {
-        console.warn(`[MetadataService] Google Books error: ${response.status}`)
-        return []
-      }
+      const response = await this.timedFetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`
+      )
+      if (!response) return []
+      if (response.status === 429) return []
+      if (!response.ok) return []
 
       const data = await response.json()
       if (!data.items) return []
@@ -67,17 +77,17 @@ export class MetadataService {
           source: 'google' as const
         }
       })
-    } catch (e) {
-      console.warn('[MetadataService] Google Books failed:', e)
-      return []
-    }
+    } catch { return [] }
   }
 
   private static async fetchFromOpenLibrary(query: string): Promise<WebMetadata[]> {
     try {
-      const response = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5`)
-      const data = await response.json()
+      const response = await this.timedFetch(
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5`
+      )
+      if (!response || !response.ok) return []
 
+      const data = await response.json()
       if (!data.docs) return []
 
       return data.docs.map((doc: any) => ({
@@ -89,42 +99,28 @@ export class MetadataService {
         publisher: doc.publisher ? doc.publisher[0] : undefined,
         source: 'openlibrary' as const
       }))
-    } catch (e) {
-      console.warn('[MetadataService] Open Library failed:', e)
-      return []
-    }
+    } catch { return [] }
   }
 
   private static async fetchFromITunes(query: string): Promise<WebMetadata[]> {
     try {
-      const response = await fetch(
+      const response = await this.timedFetch(
         `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=ebook&limit=5`
       )
-
-      if (!response.ok) {
-        console.warn(`[MetadataService] iTunes error: ${response.status}`)
-        return []
-      }
+      if (!response || !response.ok) return []
 
       const data = await response.json()
-      if (!data.results || data.results.length === 0) return []
+      if (!data.results?.length) return []
 
       return data.results.map((item: any) => ({
         title: item.trackName,
         author: item.artistName || 'Autore sconosciuto',
-        cover: item.artworkUrl100
-          ? item.artworkUrl100.replace('100x100', '600x600')
-          : undefined,
+        cover: item.artworkUrl100?.replace('100x100', '600x600'),
         genre: item.genres?.[0],
-        publishedDate: item.releaseDate
-          ? new Date(item.releaseDate).getFullYear().toString()
-          : undefined,
-        publisher: item.sellerName || undefined,
+        publishedDate: item.releaseDate ? new Date(item.releaseDate).getFullYear().toString() : undefined,
+        publisher: item.sellerName,
         source: 'itunes' as const
       }))
-    } catch (e) {
-      console.warn('[MetadataService] iTunes failed:', e)
-      return []
-    }
+    } catch { return [] }
   }
 }
