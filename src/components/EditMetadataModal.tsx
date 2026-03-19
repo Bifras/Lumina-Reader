@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Image as ImageIcon, Save, RefreshCw, List, Upload } from 'lucide-react'
+import { X, Image as ImageIcon, Save, RefreshCw, List, Upload, ExternalLink, Check } from 'lucide-react'
 import { useFocusTrap } from '../hooks'
+import { MetadataService, type WebMetadata } from '../services/MetadataService'
 import type { Book } from '../types'
 
 interface EditMetadataModalProps {
@@ -27,6 +28,11 @@ export default function EditMetadataModal({
   const [coverUrl, setCoverUrl] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
+  // Web Metadata state
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<WebMetadata[]>([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
+
   // Initialize form when book changes or modal opens
   useEffect(() => {
     if (isOpen && book) {
@@ -34,6 +40,8 @@ export default function EditMetadataModal({
       setAuthor(book.author || '')
       setTags(book.tags ? book.tags.join(', ') : '')
       setCoverUrl(book.cover || '')
+      setSearchResults([])
+      setShowSearchResults(false)
     }
   }, [isOpen, book])
 
@@ -42,14 +50,46 @@ export default function EditMetadataModal({
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.stopPropagation()
-        onClose()
+        if (showSearchResults) {
+          setShowSearchResults(false)
+        } else {
+          e.stopPropagation()
+          onClose()
+        }
       }
     }
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, showSearchResults])
+
+  const handleSearchMetadata = async () => {
+    if (!title.trim()) return
+
+    setIsSearching(true)
+    try {
+      const results = await MetadataService.searchMetadata(title, author)
+      setSearchResults(results)
+      setShowSearchResults(true)
+    } catch (error) {
+      console.error('Search error:', error)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const applyWebMetadata = (metadata: WebMetadata) => {
+    setTitle(metadata.title)
+    setAuthor(metadata.author)
+    if (metadata.cover) setCoverUrl(metadata.cover)
+    if (metadata.genre && !tags.includes(metadata.genre)) {
+      const currentTags = tags.split(',').map(t => t.trim()).filter(Boolean)
+      if (!currentTags.includes(metadata.genre)) {
+        setTags(prev => prev ? `${prev}, ${metadata.genre}` : metadata.genre!)
+      }
+    }
+    setShowSearchResults(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,7 +107,6 @@ export default function EditMetadataModal({
       onClose()
     } catch (error) {
       console.error('Error saving metadata:', error)
-      // Toast notification should ideally be handled by the parent
     } finally {
       setIsSaving(false)
     }
@@ -77,7 +116,6 @@ export default function EditMetadataModal({
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Limit size to ~5MB
     if (file.size > 5 * 1024 * 1024) {
       alert('Immagine troppo grande. Scegli un file più piccolo di 5MB.')
       return
@@ -145,8 +183,8 @@ export default function EditMetadataModal({
                   </div>
                   
                   <div className="edit-metadata__cover-actions">
-                    <label className="secondary-button" style={{ width: '100%', justifyContent: 'center', cursor: 'pointer' }}>
-                      <Upload size={16} />
+                    <label className="secondary-button" style={{ width: '100%', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem' }}>
+                      <Upload size={14} />
                       Carica
                       <input 
                         type="file" 
@@ -197,13 +235,18 @@ export default function EditMetadataModal({
                 </div>
               </div>
 
-              {/* Tools Section (Auto-fill & TOC) */}
+              {/* Tools Section */}
               <div className="edit-metadata__tools">
                 <div className="tools-section-title">Strumenti Avanzati</div>
                 <div className="tools-grid">
-                  <button type="button" className="tool-button" disabled title="Prossimamente">
-                    <RefreshCw size={18} />
-                    <span>Auto-compila da Web</span>
+                  <button 
+                    type="button" 
+                    className={`tool-button ${isSearching ? 'searching' : ''}`} 
+                    onClick={handleSearchMetadata}
+                    disabled={isSearching || !title.trim()}
+                  >
+                    {isSearching ? <RefreshCw size={18} className="spin" /> : <RefreshCw size={18} />}
+                    <span>{isSearching ? 'Ricerca...' : 'Auto-compila da Web'}</span>
                   </button>
                   <button type="button" className="tool-button" disabled title="Prossimamente">
                     <List size={18} />
@@ -237,6 +280,46 @@ export default function EditMetadataModal({
                 )}
               </button>
             </div>
+
+            {/* Web Search Results Overlay */}
+            <AnimatePresence>
+              {showSearchResults && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="web-search-results"
+                >
+                  <div className="web-search-results__header">
+                    <h4>Risultati dal Web</h4>
+                    <button onClick={() => setShowSearchResults(false)} className="close-results">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="web-search-results__list">
+                    {searchResults.length === 0 ? (
+                      <div className="no-results">Nessun risultato trovato. Prova a modificare titolo o autore.</div>
+                    ) : (
+                      searchResults.map((result, idx) => (
+                        <div key={idx} className="search-result-item" onClick={() => applyWebMetadata(result)}>
+                          <div className="result-cover">
+                            {result.cover ? <img src={result.cover} alt="" /> : <ImageIcon size={20} />}
+                          </div>
+                          <div className="result-info">
+                            <div className="result-title">{result.title}</div>
+                            <div className="result-author">{result.author}</div>
+                            <div className="result-source">Fonte: {result.source === 'google' ? 'Google Books' : 'Open Library'}</div>
+                          </div>
+                          <button className="apply-result-btn" title="Applica questi metadati">
+                            <Check size={16} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
       )}
