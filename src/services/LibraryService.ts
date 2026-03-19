@@ -115,6 +115,18 @@ export class LibraryService {
     await dbService.removeBook(id)
   }
 
+  static async updateBookMetadata(id: string, updates: Partial<Book>): Promise<Book[]> {
+    const library = await this.getLibrary()
+    const bookIndex = library.findIndex(b => b.id === id)
+    
+    if (bookIndex !== -1) {
+      const updatedBook = { ...library[bookIndex], ...updates }
+      await dbService.saveBookMetadata(updatedBook)
+    }
+    
+    return await this.getLibrary()
+  }
+
   static async searchBooks(filters: any): Promise<Book[]> {
     return await dbService.searchBooks(filters)
   }

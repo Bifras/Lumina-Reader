@@ -1,6 +1,6 @@
-import { memo, MouseEventHandler, useState, useMemo, useCallback } from 'react'
+import { memo, MouseEventHandler, useState, useMemo, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { BookOpen, Trash2, Clock, User, Folder, Calendar, Tag } from 'lucide-react'
+import { Trash2, Edit2, User, Folder, Calendar, Tag, Book as BookIcon } from 'lucide-react'
 import StarRating from './StarRating'
 import type { Book } from '../types'
 
@@ -8,6 +8,7 @@ interface BookCardProps {
   book: Book
   onClick: () => void
   onDelete: () => void
+  onEdit?: () => void
   onRate?: (rating: number) => void
   viewMode?: 'grid' | 'list' | 'compact'
   showProgress?: boolean
@@ -19,6 +20,11 @@ interface BookCardProps {
   interactiveRating?: boolean
   cardSize?: number
 }
+
+type CoverPresentation = 'fill' | 'fit'
+
+const FIT_RATIO_MIN = 0.58
+const FIT_RATIO_MAX = 0.82
 
 const BookCard = memo(function BookCard({ 
   book, 
@@ -37,14 +43,38 @@ const BookCard = memo(function BookCard({
 }: BookCardProps) {
   const [coverError, setCoverError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const [coverPresentation, setCoverPresentation] = useState<CoverPresentation>('fill')
+
+  useEffect(() => {
+    setCoverError(false)
+    setCoverPresentation('fill')
+  }, [book.cover])
 
   const handleDelete: MouseEventHandler<HTMLButtonElement> = (e) => {
     e.stopPropagation()
     onDelete()
   }
 
-  const handleCoverError = () => {
+  const handleCoverError = useCallback(() => {
     setCoverError(true)
+    setCoverPresentation('fill')
+  }, [])
+
+  const handleCoverLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth, naturalHeight } = e.currentTarget
+
+    if (!naturalWidth || !naturalHeight) {
+      return
+    }
+
+    const ratio = naturalWidth / naturalHeight
+    const shouldFit = ratio < FIT_RATIO_MIN || ratio > FIT_RATIO_MAX
+    setCoverPresentation(shouldFit ? 'fit' : 'fill')
+  }, [])
+
+  const handleEdit: MouseEventHandler<HTMLButtonElement> = (e) => {
+    e.stopPropagation()
+    if (onEdit) onEdit()
   }
 
   const handleRate = useCallback((rating: number) => {
@@ -55,23 +85,20 @@ const BookCard = memo(function BookCard({
     e.stopPropagation()
   }
 
-  // Format date
   const formattedDate = useMemo(() => {
     if (!book.addedAt) return ''
     const date = new Date(book.addedAt)
-    return date.toLocaleDateString('it-IT', { 
-      day: 'numeric', 
-      month: 'short', 
-      year: 'numeric' 
+    return date.toLocaleDateString('it-IT', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
     })
   }, [book.addedAt])
 
-  // Get primary collection
   const primaryCollection = useMemo(() => {
-    return book.collection || (book.collectionIds && book.collectionIds[0])
-  }, [book.collection, book.collectionIds])
+    return typeof book.collection === 'string' ? book.collection.trim() : ''
+  }, [book.collection])
 
-  // Dynamic styles based on view mode and size
   const cardStyle = useMemo(() => {
     if (viewMode === 'list') {
       return {
@@ -81,7 +108,7 @@ const BookCard = memo(function BookCard({
         alignItems: 'center'
       }
     }
-    
+
     return {
       width: viewMode === 'compact' ? 'auto' : `${cardSize}px`,
       maxWidth: '100%'
@@ -90,9 +117,91 @@ const BookCard = memo(function BookCard({
 
   const coverHeight = viewMode === 'compact' ? 160 : viewMode === 'list' ? 100 : Math.round(cardSize * 1.5)
 
+  const noCoverMonogram = useMemo(() => {
+    const source = `${book.title} ${book.author || ''}`
+      .split(/\s+/)
+      .map(segment => segment.trim())
+      .filter(Boolean)
+
+    const initials = source
+      .slice(0, 2)
+      .map(segment => segment.charAt(0).toUpperCase())
+      .join('')
+
+    return initials || 'L'
+  }, [book.title, book.author])
+
+  const noCoverClassName = useMemo(() => {
+    // Generate a consistent color index (0-7) based on title hash
+    let hash = 0
+    for (let i = 0; i < book.title.length; i++) {
+      hash = book.title.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const colorIndex = Math.abs(hash) % 8
+    
+    // Choose texture based on author name length or other stable property
+    const textureClass = (book.author?.length || 0) % 2 === 0 ? 'no-cover--texture-linen' : 'no-cover--texture-paper'
+    
+    const baseClasses = ['no-cover', `no-cover--color-${colorIndex}`, textureClass]
+
+    if (viewMode === 'list') baseClasses.push('no-cover--list')
+    else if (viewMode === 'compact') baseClasses.push('no-cover--compact')
+    else baseClasses.push('no-cover--grid')
+
+    return baseClasses.join(' ')
+  }, [book.title, book.author, viewMode])
+
+  const coverMediaClassName = useMemo(() => {
+    const classes = ['book-cover-media']
+
+    if (viewMode === 'list') {
+      classes.push('book-cover-media--small')
+    } else if (viewMode === 'compact') {
+      classes.push('book-cover-media--compact')
+    }
+
+    if (coverPresentation === 'fit') {
+      classes.push('book-cover-media--fit')
+    }
+
+    return classes.join(' ')
+  }, [coverPresentation, viewMode])
+
+  const renderNoCover = useCallback(() => (
+    <div className={noCoverClassName} aria-hidden="true">
+      <div className="no-cover__content">
+        <div className="no-cover__text">
+          <span className="no-cover__title" title={book.title}>{book.title}</span>
+          {book.author && (
+            <span className="no-cover__author" title={book.author}>
+              {book.author}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  ), [book.author, book.title, noCoverClassName])
+
+  const renderCoverArt = useCallback(() => {
+    const hasCover = book.cover && book.cover.trim() !== '' && book.cover !== 'null';
+    if (!hasCover || coverError) {
+      return renderNoCover()
+    }
+
+    return (
+      <div className={coverMediaClassName}>
+        <img
+          src={book.cover}
+          alt={book.title}
+          onError={handleCoverError}
+          onLoad={handleCoverLoad}
+          loading="lazy"
+        />
+      </div>
+    )
+  }, [book.cover, book.title, coverError, coverMediaClassName, handleCoverError, handleCoverLoad, renderNoCover])
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    // Activate only when the card container itself has focus.
-    // This avoids hijacking Enter/Space from nested controls (delete/rating buttons).
     if (e.target !== e.currentTarget) return
 
     if (e.key === 'Enter' || e.key === ' ') {
@@ -117,22 +226,15 @@ const BookCard = memo(function BookCard({
         role="listitem"
         tabIndex={0}
       >
-        <div 
+        <div
           className="book-cover-wrapper book-cover-wrapper--small"
-          style={{ height: coverHeight, width: 80 }}
+          style={{
+            height: coverHeight,
+            width: 80,
+            ...(book.cover && !coverError ? { '--cover-bg': `url("${book.cover}")` } : {}) as React.CSSProperties
+          }}
         >
-          {book.cover && !coverError ? (
-            <img 
-              src={book.cover} 
-              alt={book.title}
-              onError={handleCoverError}
-              loading="lazy"
-            />
-          ) : (
-            <div className="no-cover">
-              <BookOpen size={24} aria-hidden="true" />
-            </div>
-          )}
+          {renderCoverArt()}
           {showProgress && book.progress > 0 && (
             <div className="progress-bar">
               <div
@@ -165,7 +267,7 @@ const BookCard = memo(function BookCard({
                 <span>{formattedDate}</span>
               </span>
             )}
-          </div>          
+          </div>
           <div className="book-meta-row book-meta-row--secondary">
             {showProgress && book.progress > 0 && (
               <span className="progress-text">{book.progress}% letto</span>
@@ -177,12 +279,12 @@ const BookCard = memo(function BookCard({
               </span>
             )}
             {showRating && onRate && (
-              <div 
+              <div
                 className="book-card__rating-wrapper"
                 onClick={handleRateClick}
               >
-                <StarRating 
-                  rating={book.rating || 0} 
+                <StarRating
+                  rating={book.rating || 0}
                   size={16}
                   interactive={interactiveRating}
                   onRate={handleRate}
@@ -195,22 +297,36 @@ const BookCard = memo(function BookCard({
           </div>
         </div>
 
-        <motion.button
-          className="delete-btn delete-btn--list"
-          onClick={handleDelete}
-          aria-label={`Elimina ${book.title}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: isHovered ? 0.6 : 0 }}
-          whileHover={{ opacity: 1, scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <Trash2 size={18} />
-        </motion.button>
+        <div className="list-actions" style={{ display: 'flex', gap: '4px' }}>
+          {onEdit && (
+            <motion.button
+              className="delete-btn delete-btn--list"
+              onClick={handleEdit}
+              aria-label={`Modifica metadati ${book.title}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isHovered ? 0.6 : 0 }}
+              whileHover={{ opacity: 1, scale: 1.1, color: 'var(--text-main)' }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Edit2 size={18} />
+            </motion.button>
+          )}
+          <motion.button
+            className="delete-btn delete-btn--list"
+            onClick={handleDelete}
+            aria-label={`Elimina ${book.title}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isHovered ? 0.6 : 0 }}
+            whileHover={{ opacity: 1, scale: 1.1, color: '#ef4444' }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Trash2 size={18} />
+          </motion.button>
+        </div>
       </motion.div>
     )
   }
 
-  // Grid / Compact view
   return (
     <motion.div
       className={`book-card ${viewMode === 'compact' ? 'book-card--compact' : ''}`}
@@ -227,36 +343,41 @@ const BookCard = memo(function BookCard({
       tabIndex={0}
       aria-label={`${book.title}${book.author ? ` di ${book.author}` : ''}`}
     >
-      <div 
+      <div
         className="book-cover-wrapper"
-        style={{ 
+        style={{
           height: coverHeight,
           ...(book.cover && !coverError ? { '--cover-bg': `url("${book.cover}")` } : {}) as React.CSSProperties
         }}
       >
-        {book.cover && !coverError ? (
-          <img 
-            src={book.cover} 
-            alt={book.title}
-            onError={handleCoverError}
-            loading="lazy"
-          />
-        ) : (
-          <div className="no-cover">
-            <BookOpen size={viewMode === 'compact' ? 32 : 40} aria-hidden="true" />
-          </div>
-        )}
-        
-        <div className="delete-btn-hitbox" onClick={handleDelete}>
+        {renderCoverArt()}
+
+        <div className="card-actions-hitbox" style={{ position: 'absolute', top: 0, right: 0, padding: '8px', display: 'flex', gap: '4px', zIndex: 25 }} onClick={(e) => e.stopPropagation()}>
+          {onEdit && (
+            <motion.button
+              className="delete-btn"
+              onClick={handleEdit}
+              aria-label={`Modifica ${book.title}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isHovered ? 1 : 0 }}
+              whileHover={{ scale: 1.1, backgroundColor: 'var(--surface-hover)', color: 'var(--text-main)', borderColor: 'var(--border-subtle)' }}
+              whileTap={{ scale: 0.9 }}
+              style={{ width: '32px', height: '32px' }}
+            >
+              <Edit2 size={14} />
+            </motion.button>
+          )}
           <motion.button
             className="delete-btn"
+            onClick={handleDelete}
             aria-label={`Elimina ${book.title}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: isHovered ? 1 : 0 }}
             whileHover={{ scale: 1.1, backgroundColor: 'var(--accent-warm)' }}
             whileTap={{ scale: 0.9 }}
+            style={{ width: '32px', height: '32px' }}
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
           </motion.button>
         </div>
 
@@ -278,7 +399,7 @@ const BookCard = memo(function BookCard({
 
       <div className="book-meta">
         <h4 title={book.title}>{book.title}</h4>
-        
+
         {(showAuthor && book.author) || (showDate && formattedDate) ? (
           <div className="book-meta-row author-date-row">
             {showAuthor && book.author && (
@@ -296,7 +417,7 @@ const BookCard = memo(function BookCard({
               <span className="meta-tag genre-tag" title={book.genre}>{book.genre}</span>
             )}
             {showCollection && primaryCollection && (
-              <span className="meta-tag collection-tag" title={primaryCollection.name}>{primaryCollection.name}</span>
+              <span className="meta-tag collection-tag" title={primaryCollection}>{primaryCollection}</span>
             )}
             {(book as any).tags?.map((tag: any) => (
               <span key={tag.id} className="meta-tag custom-tag" title={tag.name}>
@@ -305,30 +426,30 @@ const BookCard = memo(function BookCard({
             ))}
           </div>
         )}
-        
-        {((showProgress && book.progress > 0) || 
-          (showRating && onRate) || 
+
+        {((showProgress && book.progress > 0) ||
+          (showRating && onRate) ||
           (showRating && !onRate && book.rating !== undefined && book.rating > 0)) && (
           <div className="book-meta-bottom">
             {showProgress && book.progress > 0 && (
               <span className="progress-text">{book.progress}% letto</span>
             )}
-            
+
             {showRating && onRate && (
-              <div 
+              <div
                 className="book-card__rating-wrapper"
                 onClick={handleRateClick}
                 aria-label="Valuta questo libro"
               >
-                <StarRating 
-                  rating={book.rating || 0} 
+                <StarRating
+                  rating={book.rating || 0}
                   size={16}
                   interactive={interactiveRating}
                   onRate={handleRate}
                 />
               </div>
             )}
-            
+
             {showRating && !onRate && book.rating !== undefined && book.rating > 0 && (
               <span className="rating-label" aria-label={`Valutazione: ${book.rating} su 5 stelle`}>
                 ★ {book.rating}
@@ -342,3 +463,4 @@ const BookCard = memo(function BookCard({
 })
 
 export default BookCard
+
