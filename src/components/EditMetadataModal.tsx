@@ -1,22 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Image as ImageIcon, Save, RefreshCw, Upload, Check } from 'lucide-react'
+import { X, Image as ImageIcon, Save, RefreshCw, Upload, Check, List } from 'lucide-react'
 import { useFocusTrap } from '../hooks'
 import { MetadataService, type WebMetadata } from '../services/MetadataService'
-import type { Book } from '../types'
+import type { Book, TOCEntry } from '../types'
 
 interface EditMetadataModalProps {
   isOpen: boolean
   book: Book | null
   onClose: () => void
   onSave: (updatedBook: Partial<Book>) => Promise<void>
+  onDetectChapters?: () => Promise<TOCEntry[]>
 }
 
 export default function EditMetadataModal({
   isOpen,
   book,
   onClose,
-  onSave
+  onSave,
+  onDetectChapters
 }: EditMetadataModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, isOpen)
@@ -35,6 +37,11 @@ export default function EditMetadataModal({
   const [searchWarning, setSearchWarning] = useState<string | null>(null)
   const [showSearchResults, setShowSearchResults] = useState(false)
 
+  // Chapter detection state
+  const [isDetecting, setIsDetecting] = useState(false)
+  const [detectedChapters, setDetectedChapters] = useState<TOCEntry[]>([])
+  const [showChapters, setShowChapters] = useState(false)
+
   // Initialize form when book changes or modal opens
   useEffect(() => {
     if (isOpen && book) {
@@ -46,6 +53,8 @@ export default function EditMetadataModal({
       setSearchWarning(null)
       setSelectedResult(null)
       setShowSearchResults(false)
+      setDetectedChapters([])
+      setShowChapters(false)
     }
   }, [isOpen, book])
 
@@ -97,6 +106,20 @@ export default function EditMetadataModal({
       setShowSearchResults(true)
     } finally {
       setIsSearching(false)
+    }
+  }
+
+  const handleDetectChapters = async () => {
+    if (!onDetectChapters) return
+    setIsDetecting(true)
+    try {
+      const chapters = await onDetectChapters()
+      setDetectedChapters(chapters)
+      setShowChapters(true)
+    } catch (error) {
+      console.error('Chapter detection error:', error)
+    } finally {
+      setIsDetecting(false)
     }
   }
 
@@ -269,6 +292,52 @@ export default function EditMetadataModal({
                   </div>
                 </div>
               </div>
+
+              {onDetectChapters && (
+                <div className="edit-metadata__toc-section">
+                  <div className="form-group__label-row">
+                    <label>Indice del libro</label>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      style={{ fontSize: '0.7rem', padding: '0.4rem 1rem' }}
+                      onClick={handleDetectChapters}
+                      disabled={isDetecting}
+                      title="Scansiona il libro e genera un indice ottimale"
+                    >
+                      {isDetecting ? <RefreshCw size={13} className="spin" /> : <List size={13} />}
+                      {isDetecting ? 'Scansione...' : 'Sistema Indice'}
+                    </button>
+                  </div>
+
+                  {showChapters && detectedChapters.length > 0 && (
+                    <div className="detected-chapters">
+                      <div className="detected-chapters__count">
+                        {detectedChapters.length} capitoli rilevati
+                      </div>
+                      <div className="detected-chapters__list">
+                        {detectedChapters.slice(0, 10).map((ch, i) => (
+                          <div key={i} className="detected-chapters__item">
+                            <span className="detected-chapters__num">{i + 1}</span>
+                            <span className="detected-chapters__label">{ch.label}</span>
+                          </div>
+                        ))}
+                        {detectedChapters.length > 10 && (
+                          <div className="detected-chapters__more">
+                            ...e altri {detectedChapters.length - 10} capitoli
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {showChapters && detectedChapters.length === 0 && (
+                    <div className="detected-chapters__empty">
+                      Nessun capitolo rilevato nel file.
+                    </div>
+                  )}
+                </div>
+              )}
 
             </form>
             

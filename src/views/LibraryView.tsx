@@ -7,9 +7,10 @@ import { useLibrarySettingsStore } from '../store/useLibrarySettingsStore'
 import { useCollectionStore } from '../store/useCollectionStore'
 import { useLibraryStore } from '../store/useLibraryStore'
 import { useDebounce } from '../hooks'
-import { updateBookRating } from '../db'
+import { updateBookRating, getBookFile } from '../db'
 import { LibraryService } from '../services/LibraryService'
-import type { Book } from '../types'
+import { ChapterDetector } from '../services/ChapterDetector'
+import type { Book, TOCEntry } from '../types'
 import { getLastReadBook, sortAndGroupBooks } from './libraryViewUtils'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EditMetadataModal from '../components/EditMetadataModal'
@@ -172,6 +173,13 @@ const LibraryView = memo(function LibraryView({
     }
   }, [bookToEdit, onUpdateLibrary, addToast])
 
+  const handleDetectChapters = useCallback(async (): Promise<TOCEntry[]> => {
+    if (!bookToEdit) return []
+    const buffer = await getBookFile(bookToEdit.id)
+    if (!buffer) throw new Error('File non trovato')
+    return ChapterDetector.detectFromFile(buffer)
+  }, [bookToEdit])
+
   // Handle rating change
   const handleRate = useCallback(async (bookId: string, rating: number) => {
     const newLibrary = await updateBookRating(bookId, rating)
@@ -296,6 +304,7 @@ const LibraryView = memo(function LibraryView({
         book={bookToEdit}
         onClose={() => setBookToEdit(null)}
         onSave={handleSaveMetadata}
+        onDetectChapters={handleDetectChapters}
       />
     </motion.div>
   )

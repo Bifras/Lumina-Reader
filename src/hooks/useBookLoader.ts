@@ -4,6 +4,7 @@ import { getBookFile } from '../db'
 import { FONT_CONFIG } from '../config/fonts'
 import { ReaderSettingsService } from '../services/ReaderSettingsService'
 import { THEMES, type ThemeOption } from '../config/themes'
+import { ChapterDetector } from '../services/ChapterDetector'
 
 // Lazy-loaded epubjs instance
 let ePub: typeof import('epubjs').default | null = null
@@ -836,7 +837,20 @@ export const useBookLoader = (
       }
       try {
         const nav = await book.loaded.navigation
-        setToc(nav.toc)
+        const epubToc: TOCEntry[] = nav.toc || []
+
+        // Evaluate the EPUB's built-in TOC quality
+        const { score, issues } = ChapterDetector.evaluateTOC(epubToc)
+
+        if (score >= 0.7) {
+          // Good TOC — just clean labels
+          setToc(ChapterDetector.cleanTOC(epubToc))
+        } else {
+          // Poor or missing TOC — auto-detect from headings
+          console.log(`[ChapterDetector] TOC score: ${score.toFixed(2)}, issues: ${issues.join(', ')}`)
+          const detected = await ChapterDetector.detectChapters(book)
+          setToc(detected.length > 0 ? detected : ChapterDetector.cleanTOC(epubToc))
+        }
       } catch (e) { setToc([]) }
 
       setLoadingStep(null)
