@@ -9,5 +9,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Fa in modo che l'app legga il capitolo corrente correttamente e lo mostri nella barra superiore**
+- [x] **Track: Fa in modo che l'app legga il capitolo corrente correttamente e lo mostri nella barra superiore**
   *Link: [./tracks/chapter_detection_20260319/](./tracks/chapter_detection_20260319/)*
