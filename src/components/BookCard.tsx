@@ -356,14 +356,27 @@ const BookCard = memo(function BookCard({
         <div className="card-actions-hitbox" style={{ position: 'absolute', top: 0, right: 0, padding: '8px', display: 'flex', gap: '4px', zIndex: 25 }} onClick={(e) => e.stopPropagation()}>
           {onEdit && (
             <motion.button
-              className="delete-btn"
+              className="edit-btn"
               onClick={handleEdit}
               aria-label={`Modifica ${book.title}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: isHovered ? 1 : 0 }}
               whileHover={{ scale: 1.1, backgroundColor: 'var(--surface-hover)', color: 'var(--text-main)', borderColor: 'var(--border-subtle)' }}
               whileTap={{ scale: 0.9 }}
-              style={{ width: '32px', height: '32px' }}
+              style={{ 
+                width: '32px', 
+                height: '32px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justify-content: center,
+                backgroundColor: 'color-mix(in srgb, var(--text-main) 60%, transparent)',
+                color: 'var(--bg-ivory)',
+                border: '1px solid color-mix(in srgb, var(--bg-ivory) 30%, transparent)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                cursor: 'pointer'
+              } as any}
             >
               <Edit2 size={14} />
             </motion.button>
