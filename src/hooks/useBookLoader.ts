@@ -44,6 +44,7 @@ interface UseBookLoaderReturn {
   goToNextPage: () => void
   goToPrevPage: () => void
   pageInfo: { current: number; total: number } | null
+  currentChapter: string | null
   relocatedListenerRef: React.MutableRefObject<((location: { start: { cfi: string } }) => { cfi: string; progress: number }) | null>
 }
 
@@ -151,6 +152,7 @@ export const useBookLoader = (
   const [pendingBookLoad, setPendingBookLoad] = useState<LoadBookParams | null>(null)
   const [viewerReady, setViewerReady] = useState(false)
   const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null)
+  const [currentChapter, setCurrentChapter] = useState<string | null>(null)
   const themeRef = useRef<{ background: string; text: string }>({
     background: THEMES[currentTheme]?.body?.background || '#f9f7f2',
     text: THEMES[currentTheme]?.body?.color || '#1a1a1a'
@@ -769,6 +771,56 @@ export const useBookLoader = (
           setPageInfo({ current: displayed.page, total: displayed.total })
         }
 
+        // Determine current chapter
+        if (location.start && location.start.href) {
+          try {
+            const href = location.start.href;
+            const basePath = href.split('#')[0];
+            
+            const getFilename = (url: string) => {
+              const parts = url.split('#')[0].split('/');
+              return parts[parts.length - 1] || url;
+            };
+            const baseFilename = getFilename(href);
+            
+            book.loaded.navigation.then(nav => {
+              // Flatten toc recursively
+              const flattenTOC = (toc: TOCEntry[]): TOCEntry[] => {
+                return toc.reduce((acc: TOCEntry[], item: TOCEntry) => {
+                  return acc.concat(item, item.subitems ? flattenTOC(item.subitems) : []);
+                }, []);
+              };
+              
+              const flatTOC = flattenTOC(nav.toc || []);
+              
+              // 1. Try exact match first
+              let chapter = flatTOC.find(item => item.href === href);
+              
+              // 2. Try matching just the base path without fragments
+              if (!chapter) {
+                chapter = flatTOC.find(item => item.href.split('#')[0] === basePath);
+              }
+              
+              // 3. Try matching just the filename (most robust fallback)
+              if (!chapter) {
+                chapter = flatTOC.find(item => getFilename(item.href) === baseFilename);
+              }
+              
+              if (chapter && chapter.label) {
+                setCurrentChapter(chapter.label.trim());
+              } else {
+                 setCurrentChapter(null);
+              }
+            }).catch(() => {
+              setCurrentChapter(null);
+            });
+          } catch (e) {
+            setCurrentChapter(null);
+          }
+        } else {
+          setCurrentChapter(null);
+        }
+
         // Call progress callback if provided
         if (onProgressChange) {
           onProgressChange(progress, location.start.cfi)
@@ -839,6 +891,7 @@ export const useBookLoader = (
     resetReader,
     goToNextPage,
     goToPrevPage,
-    pageInfo
+    pageInfo,
+    currentChapter
   }
 }

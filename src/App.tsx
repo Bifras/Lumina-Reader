@@ -7,6 +7,7 @@ import localforage from 'localforage'
 // Components
 import Toast from './components/Toast'
 import LoadingOverlay from './components/LoadingOverlay'
+import WindowTitleBar from './components/WindowTitleBar'
 import LibraryView from './views/LibraryView'
 import ReaderView from './views/ReaderView'
 
@@ -34,6 +35,7 @@ function App(): React.ReactElement {
   const [activeBook, setActiveBook] = useState<Book | null>(null)
   const [isDragOver, setIsDragOver] = useState<boolean>(false)
   const lastSearch = useLibrarySettingsStore(state => state.lastSearch)
+  const libraryTheme = useLibrarySettingsStore(state => state.libraryTheme)
   const [searchQuery, setSearchQuery] = useState<string>(lastSearch || '')
 
   // Reader Settings - from Zustand store (single source of truth)
@@ -128,7 +130,8 @@ function App(): React.ReactElement {
     resetReader,
     goToNextPage,
     goToPrevPage,
-    pageInfo
+    pageInfo,
+    currentChapter
   } = useBookLoader(viewerRef as React.RefObject<HTMLDivElement>, addToast, currentTheme as 'light' | 'sepia' | 'dark', fontSize, readingFont, (progress, cfi) => {
     setReadingProgress(progress)
     currentCfiRef.current = cfi
@@ -399,8 +402,31 @@ function App(): React.ReactElement {
     }
   }, [increaseFontSize, decreaseFontSize])
 
+  const chromeTheme = useMemo<'light' | 'dark' | 'sepia'>(() => {
+    if (!activeBook && libraryTheme !== 'auto') {
+      return libraryTheme
+    }
+
+    if (currentTheme === 'dark' || currentTheme === 'sepia') {
+      return currentTheme
+    }
+
+    return 'light'
+  }, [activeBook, currentTheme, libraryTheme])
+
+  const titleBarDetail = activeBook
+    ? metadata?.title || activeBook.title
+    : ''
+
   return (
     <div className={`app-container theme-${currentTheme}`}>
+      <WindowTitleBar
+        theme={chromeTheme}
+        contextLabel={activeBook ? currentChapter : ''}
+        contextDetail={titleBarDetail}
+        progress={activeBook ? readingProgress : undefined}
+        isReading={!!activeBook}
+      />
       <Toast toasts={toasts} removeToast={removeToast} />
 
       <AnimatePresence mode="wait">
@@ -417,6 +443,7 @@ function App(): React.ReactElement {
             onRegenerateCovers={handleRegenerateCovers}
             onSearchChange={setSearchQuery}
             isLoading={isLibraryLoading}
+            addToast={addToast}
           />
         ) : (
           <ReaderView
@@ -457,6 +484,9 @@ function App(): React.ReactElement {
 }
 
 export default App
+
+
+
 
 
 
