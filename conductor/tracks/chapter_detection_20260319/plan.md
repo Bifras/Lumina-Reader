@@ -16,6 +16,6 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: UI Fallback Refinement' (Protocol in workflow.md) 88e8f4e
 
 ## Phase 3: Testing and Verification
-- [ ] Task: Manually test with at least one EPUB containing a well-structured TOC to verify chapter names update correctly.
-- [ ] Task: Manually test with an EPUB known to have no TOC or complex internal paths to ensure no errors occur and the UI remains clean (no fallback text).
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Testing and Verification' (Protocol in workflow.md)
+- [x] Task: Manually test with at least one EPUB containing a well-structured TOC to verify chapter names update correctly. 4229ae3
+- [x] Task: Manually test with an EPUB known to have no TOC or complex internal paths to ensure no errors occur and the UI remains clean (no fallback text). 4229ae3
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Testing and Verification' (Protocol in workflow.md) 4229ae3
