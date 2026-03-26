@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, RefObject, useEffect } from 'react'
 import type { Rendition, TOCEntry } from '../types'
-import { getBookFile } from '../db'
+import { getBookById, getBookFile } from '../db'
 import { FONT_CONFIG } from '../config/fonts'
 import { ReaderSettingsService } from '../services/ReaderSettingsService'
 import { THEMES, type ThemeOption } from '../config/themes'
@@ -154,6 +154,7 @@ export const useBookLoader = (
   const [viewerReady, setViewerReady] = useState(false)
   const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null)
   const [currentChapter, setCurrentChapter] = useState<string | null>(null)
+  const tocRef = useRef<TOCEntry[]>([])
   const themeRef = useRef<{ background: string; text: string }>({
     background: THEMES[currentTheme]?.body?.background || '#f9f7f2',
     text: THEMES[currentTheme]?.body?.color || '#1a1a1a'
@@ -531,6 +532,12 @@ export const useBookLoader = (
     }
   }, [rendition, bookEngine])
 
+  const applyResolvedTOC = useCallback((nextTOC: TOCEntry[]) => {
+    const normalized = ChapterDetector.normalizeTOC(nextTOC)
+    tocRef.current = normalized
+    setToc(normalized)
+  }, [])
+
   const loadBookIntoViewer = useCallback(async ({ file, savedCfi, bookId }: LoadBookParams): Promise<LoadBookResult | void> => {
     if (loadingRef.current) return
     if (!viewerRef.current) {
@@ -546,6 +553,7 @@ export const useBookLoader = (
       setLoadingStep('Preparazione dati...')
       let bookData: ArrayBuffer
       let book: import('epubjs').Book
+      let savedBook: Awaited<ReturnType<typeof getBookById>> = null
 
       if (file) {
         bookData = await file.arrayBuffer()
@@ -556,6 +564,7 @@ export const useBookLoader = (
         const fileData = await getBookFile(bookId)
         if (!fileData) throw new Error('File non trovato')
         bookData = fileData
+        savedBook = await getBookById(bookId)
         const ePubModule = await getEpub()
         book = ePubModule(bookData)
         setBookEngine(book)
@@ -567,11 +576,14 @@ export const useBookLoader = (
 
 
       const width = viewerRef.current.clientWidth || undefined
-      const height = viewerRef.current.clientHeight || undefined
+      const titleBarHeight = 32
+      const bookHeaderHeight = 70
+      const pillAreaHeight = 96
+      const availableHeight = (viewerRef.current.clientHeight || window.innerHeight) - titleBarHeight - bookHeaderHeight - pillAreaHeight
 
       const newRendition = book.renderTo(viewerRef.current, {
         width: width || '100%',
-        height: height || '100%',
+        height: Math.max(availableHeight, 200),
         flow: 'paginated',
         manager: 'default',
         allowScriptedContent: false // SECURITY: Disabled to prevent XSS/RCE from malicious EPUBs
@@ -661,7 +673,7 @@ export const useBookLoader = (
 
       setRendition(newRendition)
       const meta = await book.loaded.metadata
-      setMetadata(meta as any)
+      setMetadata(savedBook ? { ...(meta as any), ...savedBook } : meta as any)
 
       newRendition.themes.register('light', THEMES.light)
       newRendition.themes.register('sepia', THEMES.sepia)
@@ -778,43 +790,14 @@ export const useBookLoader = (
             const href = location.start.href;
             const basePath = href.split('#')[0];
             
-            const getFilename = (url: string) => {
-              const parts = url.split('#')[0].split('/');
-              return parts[parts.length - 1] || url;
-            };
-            const baseFilename = getFilename(href);
-            
-            book.loaded.navigation.then(nav => {
-              // Flatten toc recursively
-              const flattenTOC = (toc: TOCEntry[]): TOCEntry[] => {
-                return toc.reduce((acc: TOCEntry[], item: TOCEntry) => {
-                  return acc.concat(item, item.subitems ? flattenTOC(item.subitems) : []);
-                }, []);
-              };
-              
-              const flatTOC = flattenTOC(nav.toc || []);
-              
-              // 1. Try exact match first
-              let chapter = flatTOC.find(item => item.href === href);
-              
-              // 2. Try matching just the base path without fragments
-              if (!chapter) {
-                chapter = flatTOC.find(item => item.href.split('#')[0] === basePath);
-              }
-              
-              // 3. Try matching just the filename (most robust fallback)
-              if (!chapter) {
-                chapter = flatTOC.find(item => getFilename(item.href) === baseFilename);
-              }
-              
-              if (chapter && chapter.label) {
-                setCurrentChapter(chapter.label.trim());
-              } else {
-                 setCurrentChapter(null);
-              }
-            }).catch(() => {
-              setCurrentChapter(null);
-            });
+            const chapter = ChapterDetector.findChapterByHref(tocRef.current, href) ||
+              ChapterDetector.findChapterByHref(tocRef.current, basePath)
+
+            if (chapter?.label) {
+              setCurrentChapter(chapter.label.trim())
+            } else {
+              setCurrentChapter(null)
+            }
           } catch (e) {
             setCurrentChapter(null);
           }
@@ -837,21 +820,27 @@ export const useBookLoader = (
       }
       try {
         const nav = await book.loaded.navigation
-        const epubToc: TOCEntry[] = nav.toc || []
+        const savedOverride = savedBook?.tocOverride || []
 
-        // Evaluate the EPUB's built-in TOC quality
-        const { score, issues } = ChapterDetector.evaluateTOC(epubToc)
-
-        if (score >= 0.7) {
-          // Good TOC — just clean labels
-          setToc(ChapterDetector.cleanTOC(epubToc))
+        if (savedOverride.length > 0) {
+          applyResolvedTOC(savedOverride)
         } else {
-          // Poor or missing TOC — auto-detect from headings
-          console.log(`[ChapterDetector] TOC score: ${score.toFixed(2)}, issues: ${issues.join(', ')}`)
-          const detected = await ChapterDetector.detectChapters(book)
-          setToc(detected.length > 0 ? detected : ChapterDetector.cleanTOC(epubToc))
+          const epubToc: TOCEntry[] = nav.toc || []
+          const normalizedEpubTOC = ChapterDetector.normalizeTOC(epubToc)
+
+          // Evaluate the EPUB's built-in TOC quality
+          const { score, issues } = ChapterDetector.evaluateTOC(normalizedEpubTOC)
+
+          if (score >= 0.7) {
+            applyResolvedTOC(normalizedEpubTOC)
+          } else {
+            // Poor or missing TOC — auto-detect from headings
+            console.log(`[ChapterDetector] TOC score: ${score.toFixed(2)}, issues: ${issues.join(', ')}`)
+            const detected = ChapterDetector.normalizeTOC(await ChapterDetector.detectChapters(book))
+            applyResolvedTOC(detected.length > 0 ? detected : normalizedEpubTOC)
+          }
         }
-      } catch (e) { setToc([]) }
+      } catch (e) { applyResolvedTOC([]) }
 
       setLoadingStep(null)
       return { book, rendition: newRendition, metadata: meta as any }
@@ -865,7 +854,7 @@ export const useBookLoader = (
       setLoadingStep(null)
       setPendingBookLoad(null)
     }
-  }, [viewerRef, cleanupPreviousBook, addToast, currentTheme, fontSize, readingFont, registerPrepaintHook, applyPrepaintStyles, onProgressChange])
+  }, [viewerRef, cleanupPreviousBook, addToast, currentTheme, fontSize, readingFont, registerPrepaintHook, applyPrepaintStyles, onProgressChange, applyResolvedTOC])
 
   const goToNextPage = useCallback(() => {
     if (!rendition) return
@@ -891,6 +880,7 @@ export const useBookLoader = (
     setBookEngine(null)
     setRendition(null)
     setMetadata(null)
+    tocRef.current = []
     setToc([])
     setViewerReady(false)
     setPendingBookLoad(null)
