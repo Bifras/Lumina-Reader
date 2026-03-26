@@ -2075,7 +2075,7 @@ a:focus:not(:focus-visible) {
 
 .floating-pill-container {
   position: fixed;
-  bottom: 32px;
+  bottom: 24px;
   right: 24px;
   z-index: 100;
 }
