@@ -361,6 +361,18 @@ class DatabaseService {
     return bookCollections[bookId] || []
   }
 
+  async getCollectionBookCount(collectionId: string): Promise<number> {
+    if (this.useSqlite) {
+      return await window.electronAPI!.db!.getCollectionBookCount(collectionId)
+    }
+    const bookCollections = await localforage.getItem<Record<string, string[]>>('bookCollections') || {}
+    let count = 0
+    for (const bookId in bookCollections) {
+      if (bookCollections[bookId].includes(collectionId)) count++
+    }
+    return count
+  }
+
   async reorderCollections(collectionIds: string[]): Promise<Collection[]> {
     const collections = await this.getCollections()
     const customCollections = collections.filter(c => c.type === 'custom' && !c.isDefault)
@@ -403,21 +415,7 @@ export const countBooksInCollection = async (collectionId: string, library: Book
     return getBooksInCollection(collectionId, library).length
   }
   
-  if (dbService['useSqlite']) {
-    let count = 0
-    for (const book of library) {
-      const collections = await dbService.getBookCollections(book.id)
-      if (collections.includes(collectionId)) count++
-    }
-    return count
-  }
-
-  const bookCollections = await localforage.getItem<Record<string, string[]>>('bookCollections') || {}
-  let count = 0
-  for (const bookId in bookCollections) {
-    if (bookCollections[bookId].includes(collectionId)) count++
-  }
-  return count
+  return dbService.getCollectionBookCount(collectionId)
 }
 export const getLibrary = () => dbService.getLibrary()
 export const searchBooks = (filters: any) => dbService.searchBooks(filters)

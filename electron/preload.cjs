@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         deleteCollection: (id) => ipcRenderer.invoke('db:delete-collection', id),
 
         getBookCollections: (bookId) => ipcRenderer.invoke('db:get-book-collections', bookId),
+        getCollectionBookCount: (collectionId) => ipcRenderer.invoke('db:get-collection-book-count', collectionId),
         addBookToCollection: (bookId, collectionId) => ipcRenderer.invoke('db:add-book-to-collection', { bookId, collectionId }),
         removeBookFromCollection: (bookId, collectionId) => ipcRenderer.invoke('db:remove-book-from-collection', { bookId, collectionId }),
 
