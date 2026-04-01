@@ -7,6 +7,21 @@ interface DetectedChapter {
   order: number
 }
 
+const HEADING_RE = /<h([1-6])[^>]*>([\s\S]*?)<\/h[1-6]>/gi
+const ITEM_RE = /<item[^>]+id=["']([^"']+)["'][^>]+href=["']([^"']+)["']/gi
+const ITEM_RE2 = /<item[^>]+href=["']([^"']+)["'][^>]+id=["']([^"']+)["']/gi
+const REF_RE = /<itemref[^>]+idref=["']([^"']+)["']/gi
+
+const CLEAN_RE_1 = /<[^>]+>/g
+const CLEAN_RE_2 = /&\w+;/g
+const CLEAN_RE_3 = /\s+/g
+const CLEAN_RE_4 = /^[\s\-–—•·\d.)]+/
+const CLEAN_RE_5 = /[\s\-–—•·]+$/
+
+const HTML_ARTIFACTS_RE = /<[^>]+>|&\w+;/
+
+const NOISE_RE = /^(table of contents?|indice|copyright|dedicat.*|acknowledg.*|prefac[ei].*|about the author.*|note dell.*|ringraziament.*|\d+|.{1})$/i
+
 export class ChapterDetector {
   /**
    * Scan an epubjs book instance for chapters from heading elements.
@@ -151,7 +166,9 @@ export class ChapterDetector {
           } else if (method === 8) {
             entries[name] = await this.inflate(buffer, dataOff, compSize)
           }
-        } catch {}
+        } catch {
+          // Ignore inflation errors
+        }
       }
 
       pos += 46 + nameLen + extraLen + commentLen
@@ -172,7 +189,9 @@ export class ChapterDetector {
           new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
         ])
         if (result !== null) return result
-      } catch {}
+      } catch {
+        // Ignore format inflation error, try next
+      }
     }
 
     return ''
@@ -216,15 +235,16 @@ export class ChapterDetector {
 
     const manifest = new Map<string, string>()
     let m
-    const itemRe = /<item[^>]+id=["']([^"']+)["'][^>]+href=["']([^"']+)["']/gi
-    while ((m = itemRe.exec(opf)) !== null) manifest.set(m[1], m[2])
+    ITEM_RE.lastIndex = 0
+    while ((m = ITEM_RE.exec(opf)) !== null) manifest.set(m[1], m[2])
+
     // Also match reversed attribute order
-    const itemRe2 = /<item[^>]+href=["']([^"']+)["'][^>]+id=["']([^"']+)["']/gi
-    while ((m = itemRe2.exec(opf)) !== null) manifest.set(m[2], m[1])
+    ITEM_RE2.lastIndex = 0
+    while ((m = ITEM_RE2.exec(opf)) !== null) manifest.set(m[2], m[1])
 
     const spine: string[] = []
-    const refRe = /<itemref[^>]+idref=["']([^"']+)["']/gi
-    while ((m = refRe.exec(opf)) !== null) {
+    REF_RE.lastIndex = 0
+    while ((m = REF_RE.exec(opf)) !== null) {
       const href = manifest.get(m[1])
       if (href) spine.push(href)
     }
@@ -235,9 +255,9 @@ export class ChapterDetector {
 
   private static extractHeadings(html: string): { level: number; label: string }[] {
     const results: { level: number; label: string }[] = []
-    const re = /<h([1-6])[^>]*>([\s\S]*?)<\/h[1-6]>/gi
+    HEADING_RE.lastIndex = 0
     let m
-    while ((m = re.exec(html)) !== null) {
+    while ((m = HEADING_RE.exec(html)) !== null) {
       const raw = this.cleanLabel(m[2])
       if (raw.length >= 2 && !this.isNoise(raw)) {
         results.push({ level: parseInt(m[1], 10), label: raw })
@@ -259,7 +279,7 @@ export class ChapterDetector {
     const longLabels = toc.filter(t => t.label?.length > 80)
     if (longLabels.length) { score -= 0.2; issues.push(`${longLabels.length} etichette troppo lunghe`) }
 
-    const htmlArtifacts = toc.filter(t => /<[^>]+>|&\w+;/.test(t.label || ''))
+    const htmlArtifacts = toc.filter(t => HTML_ARTIFACTS_RE.test(t.label || ''))
     if (htmlArtifacts.length) { score -= 0.3; issues.push(`${htmlArtifacts.length} etichette con residui HTML`) }
 
     return { score: Math.max(0, score), issues }
@@ -277,21 +297,16 @@ export class ChapterDetector {
 
   private static cleanLabel(raw: string): string {
     return raw
-      .replace(/<[^>]+>/g, '')
-      .replace(/&\w+;/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(/^[\s\-–—•·\d\.\)]+/, '')
-      .replace(/[\s\-–—•·]+$/, '')
+      .replace(CLEAN_RE_1, '')
+      .replace(CLEAN_RE_2, ' ')
+      .replace(CLEAN_RE_3, ' ')
+      .replace(CLEAN_RE_4, '')
+      .replace(CLEAN_RE_5, '')
       .trim()
   }
 
   private static isNoise(text: string): boolean {
-    const t = text.toLowerCase().trim()
-    return [
-      /^table of contents?$/, /^indice$/, /^copyright$/, /^dedicat/i,
-      /^acknowledg/i, /^prefac[ei]/i, /^about the author/i,
-      /^note dell/i, /^ringraziament/i, /^\d+$/, /^.{1}$/
-    ].some(p => p.test(t))
+    return NOISE_RE.test(text.trim())
   }
 
   private static labelFromFilename(href: string): string | null {
