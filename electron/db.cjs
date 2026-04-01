@@ -240,6 +240,11 @@ class DatabaseManager {
       .map(r => r.collectionId);
   }
 
+  getCollectionBookCount(collectionId) {
+    const row = this.db.prepare('SELECT COUNT(*) as count FROM book_collections WHERE collectionId = ?').get(collectionId);
+    return row ? row.count : 0;
+  }
+
   addBookToCollection(bookId, collectionId) {
     this.db.prepare('INSERT OR IGNORE INTO book_collections (bookId, collectionId) VALUES (?, ?)')
       .run(bookId, collectionId);

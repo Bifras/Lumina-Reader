@@ -180,6 +180,7 @@ function setupIPCHandlers() {
 
     // Book-Collection Relationships
     ipcMain.handle('db:get-book-collections', (event, bookId) => db.getBookCollections(bookId));
+    ipcMain.handle('db:get-collection-book-count', (event, collectionId) => db.getCollectionBookCount(collectionId));
     ipcMain.handle('db:add-book-to-collection', (event, { bookId, collectionId }) => db.addBookToCollection(bookId, collectionId));
     ipcMain.handle('db:remove-book-from-collection', (event, { bookId, collectionId }) => db.removeBookFromCollection(bookId, collectionId));
 
