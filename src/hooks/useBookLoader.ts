@@ -609,11 +609,11 @@ export const useBookLoader = (
       // The viewer div uses flex:1 inside the reader-container,
       // and a bottom spacer reserves room for the floating pill.
       // No manual subtractions needed — CSS handles the layout.
-      const viewerHeight = viewerRef.current.clientHeight
+      const viewerHeight = Math.max(viewerRef.current.clientHeight, 300)
 
       const newRendition = book.renderTo(viewerRef.current, {
         width: width || '100%',
-        height: viewerHeight || '100%',
+        height: viewerHeight,
         flow: 'paginated',
         manager: 'default',
         allowScriptedContent: false // SECURITY: Disabled to prevent XSS/RCE from malicious EPUBs

@@ -50,6 +50,7 @@ export interface ElectronAPI {
     deleteCollection(id: string): Promise<void>
 
     getBookCollections(bookId: string): Promise<string[]>
+    getCollectionBookCount(collectionId: string): Promise<number>
     addBookToCollection(bookId: string, collectionId: string): Promise<void>
     removeBookFromCollection(bookId: string, collectionId: string): Promise<void>
 

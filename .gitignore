@@ -66,6 +66,12 @@ scripts/screenshot_sidebar_win.py
 .gemini/
 .kimi/
 .claude/
+.codex/
+.kilocode/
+.playwright-mcp/
+
+# ── Screenshot sparsi in root ────────────────────
+lumina-reader-*.png
 
 # ── Varie ───────────────────────────────────────
 telemetry-id
