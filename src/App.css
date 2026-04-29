@@ -1095,7 +1095,6 @@ a:focus:not(:focus-visible) {
 .empty-state.active .dropzone {
   color: var(--library-accent-strong);
 }
-}
 
 .empty-state .primary-button {
   cursor: pointer;
