@@ -390,8 +390,8 @@ describe('LibraryView Component', () => {
       render(<LibraryView {...props} />)
 
       // Assert
-      const dropzone = document.querySelector('.dropzone')
-      expect(dropzone).toHaveClass('active')
+      const emptyState = document.querySelector('.empty-state')
+      expect(emptyState).toHaveClass('active')
     })
   })
 
