@@ -5,12 +5,19 @@ import { useFocusTrap } from '../hooks'
 import { MetadataService, type WebMetadata } from '../services/MetadataService'
 import type { Book, TOCEntry } from '../types'
 
+interface AutoCalibrationResult {
+  updates: Partial<Book>
+  toc: TOCEntry[]
+  bestMetadataFound: boolean
+}
+
 interface EditMetadataModalProps {
   isOpen: boolean
   book: Book | null
   onClose: () => void
   onSave: (updatedBook: Partial<Book>) => Promise<void>
   onDetectChapters?: () => Promise<TOCEntry[]>
+  onAutoCalibrate?: (draft: { title: string; author: string }) => Promise<AutoCalibrationResult>
 }
 
 export default function EditMetadataModal({
@@ -18,7 +25,8 @@ export default function EditMetadataModal({
   book,
   onClose,
   onSave,
-  onDetectChapters
+  onDetectChapters,
+  onAutoCalibrate
 }: EditMetadataModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, isOpen)
@@ -28,6 +36,10 @@ export default function EditMetadataModal({
   const [author, setAuthor] = useState('')
   const [tags, setTags] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
+  const [description, setDescription] = useState('')
+  const [publisher, setPublisher] = useState('')
+  const [publishedDate, setPublishedDate] = useState('')
+  const [metadataSource, setMetadataSource] = useState<Book['metadataSource']>()
   const [isSaving, setIsSaving] = useState(false)
 
   // Web Metadata state
@@ -41,6 +53,9 @@ export default function EditMetadataModal({
   const [isDetecting, setIsDetecting] = useState(false)
   const [detectedChapters, setDetectedChapters] = useState<TOCEntry[]>([])
   const [showChapters, setShowChapters] = useState(false)
+  const [tocOverride, setTocOverride] = useState<TOCEntry[]>([])
+  const [isCalibrating, setIsCalibrating] = useState(false)
+  const [calibrationStatus, setCalibrationStatus] = useState<string | null>(null)
 
   // Initialize form when book changes or modal opens
   useEffect(() => {
@@ -49,12 +64,18 @@ export default function EditMetadataModal({
       setAuthor(book.author || '')
       setTags(book.tags ? book.tags.join(', ') : '')
       setCoverUrl(book.cover || '')
+      setDescription(book.description || '')
+      setPublisher(book.publisher || '')
+      setPublishedDate(book.publishedDate || '')
+      setMetadataSource(book.metadataSource)
       setSearchResults([])
       setSearchWarning(null)
       setSelectedResult(null)
       setShowSearchResults(false)
-      setDetectedChapters([])
-      setShowChapters(false)
+      setDetectedChapters(book.tocOverride || [])
+      setShowChapters(Boolean(book.tocOverride?.length))
+      setTocOverride(book.tocOverride || [])
+      setCalibrationStatus(null)
     }
   }, [isOpen, book])
 
@@ -75,6 +96,36 @@ export default function EditMetadataModal({
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose, showSearchResults])
+
+  const mergeTags = (currentTags: string, nextValues: Array<string | undefined>): string => {
+    const incoming = nextValues
+      .map(value => value?.trim())
+      .filter((value): value is string => Boolean(value))
+
+    const merged = new Set(
+      [
+        ...currentTags.split(',').map(tag => tag.trim()).filter(Boolean),
+        ...incoming
+      ]
+    )
+
+    return Array.from(merged).join(', ')
+  }
+
+  const applyMetadataDraft = (metadata: Partial<Book> & { source?: Book['metadataSource'] }) => {
+    if (metadata.title?.trim()) setTitle(metadata.title)
+    if (metadata.author?.trim()) setAuthor(metadata.author)
+    if (metadata.cover?.trim()) setCoverUrl(metadata.cover)
+    if (metadata.genre?.trim() || metadata.tags?.length) {
+      setTags(prev => mergeTags(prev, [metadata.genre, ...(metadata.tags || [])]))
+    }
+    if (metadata.description !== undefined) setDescription(metadata.description || '')
+    if (metadata.publisher !== undefined) setPublisher(metadata.publisher || '')
+    if (metadata.publishedDate !== undefined) setPublishedDate(metadata.publishedDate || '')
+    if (metadata.metadataSource || metadata.source) {
+      setMetadataSource((metadata.metadataSource || metadata.source) as Book['metadataSource'])
+    }
+  }
 
   const handleSearchMetadata = async () => {
     if (!title.trim()) return
@@ -112,28 +163,70 @@ export default function EditMetadataModal({
   const handleDetectChapters = async () => {
     if (!onDetectChapters) return
     setIsDetecting(true)
+    setCalibrationStatus(null)
     try {
       const chapters = await onDetectChapters()
       setDetectedChapters(chapters)
       setShowChapters(true)
+      setTocOverride(chapters)
+      setCalibrationStatus(
+        chapters.length > 0
+          ? `Indice ottimizzato pronto: ${chapters.length} capitoli rilevati.`
+          : 'Nessun capitolo rilevato automaticamente nel file.'
+      )
     } catch (error) {
       console.error('Chapter detection error:', error)
+      setCalibrationStatus('Impossibile analizzare l’indice del libro.')
     } finally {
       setIsDetecting(false)
     }
   }
 
   const applyWebMetadata = (metadata: WebMetadata) => {
-    setTitle(metadata.title)
-    setAuthor(metadata.author)
-    if (metadata.cover) setCoverUrl(metadata.cover)
-    if (metadata.genre && !tags.includes(metadata.genre)) {
-      const currentTags = tags.split(',').map(t => t.trim()).filter(Boolean)
-      if (!currentTags.includes(metadata.genre)) {
-        setTags(prev => prev ? `${prev}, ${metadata.genre}` : metadata.genre!)
-      }
-    }
+    applyMetadataDraft({
+      title: metadata.title,
+      author: metadata.author,
+      cover: metadata.cover,
+      genre: metadata.genre,
+      description: metadata.description,
+      publisher: metadata.publisher,
+      publishedDate: metadata.publishedDate,
+      metadataSource: metadata.source
+    })
     setShowSearchResults(false)
+    setCalibrationStatus(`Metadati applicati da ${metadata.source === 'google' ? 'Google Books' : metadata.source === 'itunes' ? 'iTunes' : 'Open Library'}.`)
+  }
+
+  const handleAutoCalibrate = async () => {
+    if (!onAutoCalibrate) return
+    setIsCalibrating(true)
+    setCalibrationStatus(null)
+
+    try {
+      const result = await onAutoCalibrate({ title, author })
+
+      applyMetadataDraft(result.updates)
+      if (result.toc.length > 0) {
+        setDetectedChapters(result.toc)
+        setShowChapters(true)
+        setTocOverride(result.toc)
+      }
+
+      if (result.bestMetadataFound && result.toc.length > 0) {
+        setCalibrationStatus(`Metadati dal web e indice ottimizzato pronti per il salvataggio.`)
+      } else if (result.bestMetadataFound) {
+        setCalibrationStatus('Metadati dal web pronti per il salvataggio.')
+      } else if (result.toc.length > 0) {
+        setCalibrationStatus('Indice ottimizzato pronto per il salvataggio.')
+      } else {
+        setCalibrationStatus('Nessun miglioramento automatico trovato.')
+      }
+    } catch (error) {
+      console.error('Book calibration error:', error)
+      setCalibrationStatus('Impossibile completare la calibrazione automatica.')
+    } finally {
+      setIsCalibrating(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,7 +239,12 @@ export default function EditMetadataModal({
         title: title.trim(),
         author: author.trim(),
         cover: coverUrl.trim() || undefined,
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean)
+        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        description: description.trim() || undefined,
+        publisher: publisher.trim() || undefined,
+        publishedDate: publishedDate.trim() || undefined,
+        metadataSource,
+        tocOverride: tocOverride.length > 0 ? tocOverride : undefined
       }
       await onSave(updatedData)
       onClose()
@@ -246,17 +344,32 @@ export default function EditMetadataModal({
                   <div className="form-group">
                     <div className="form-group__label-row">
                       <label htmlFor="meta-title">Titolo</label>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        style={{ fontSize: '0.7rem', padding: '0.4rem 1rem' }}
-                        onClick={handleSearchMetadata}
-                        disabled={isSearching || !title.trim()}
-                        title="Cerca metadati su Google Books, Open Library e iTunes"
-                      >
-                        {isSearching ? <RefreshCw size={13} className="spin" /> : <RefreshCw size={13} />}
-                        {isSearching ? 'Ricerca...' : 'Cerca online'}
-                      </button>
+                      <div className="edit-metadata__actions-row">
+                        {onAutoCalibrate && (
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            style={{ fontSize: '0.7rem', padding: '0.4rem 1rem' }}
+                            onClick={handleAutoCalibrate}
+                            disabled={isCalibrating || !title.trim()}
+                            title="Recupera metadati dal web e prepara un indice ottimizzato"
+                          >
+                            {isCalibrating ? <RefreshCw size={13} className="spin" /> : <Check size={13} />}
+                            {isCalibrating ? 'Calibrazione...' : 'Calibra'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          style={{ fontSize: '0.7rem', padding: '0.4rem 1rem' }}
+                          onClick={handleSearchMetadata}
+                          disabled={isSearching || !title.trim()}
+                          title="Cerca metadati su Google Books, Open Library e iTunes"
+                        >
+                          {isSearching ? <RefreshCw size={13} className="spin" /> : <RefreshCw size={13} />}
+                          {isSearching ? 'Ricerca...' : 'Cerca online'}
+                        </button>
+                      </div>
                     </div>
                     <input
                       id="meta-title"
@@ -290,24 +403,51 @@ export default function EditMetadataModal({
                       className="form-control"
                     />
                   </div>
+
+                  {(metadataSource || publisher || publishedDate || calibrationStatus) && (
+                    <div className="edit-metadata__status-card">
+                      {metadataSource && (
+                        <div className="edit-metadata__status-line">
+                          Fonte metadati: {metadataSource === 'google' ? 'Google Books' : metadataSource === 'itunes' ? 'iTunes' : 'Open Library'}
+                        </div>
+                      )}
+                      {publisher && (
+                        <div className="edit-metadata__status-line">
+                          Editore: {publisher}
+                        </div>
+                      )}
+                      {publishedDate && (
+                        <div className="edit-metadata__status-line">
+                          Pubblicazione: {publishedDate}
+                        </div>
+                      )}
+                      {calibrationStatus && (
+                        <div className="edit-metadata__status-line edit-metadata__status-line--accent">
+                          {calibrationStatus}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {onDetectChapters && (
+              {(onDetectChapters || onAutoCalibrate) && (
                 <div className="edit-metadata__toc-section">
                   <div className="form-group__label-row">
                     <label>Indice del libro</label>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      style={{ fontSize: '0.7rem', padding: '0.4rem 1rem' }}
-                      onClick={handleDetectChapters}
-                      disabled={isDetecting}
-                      title="Scansiona il libro e genera un indice ottimale"
-                    >
-                      {isDetecting ? <RefreshCw size={13} className="spin" /> : <List size={13} />}
-                      {isDetecting ? 'Scansione...' : 'Sistema Indice'}
-                    </button>
+                    {onDetectChapters && (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        style={{ fontSize: '0.7rem', padding: '0.4rem 1rem' }}
+                        onClick={handleDetectChapters}
+                        disabled={isDetecting}
+                        title="Scansiona il libro e genera un indice ottimale"
+                      >
+                        {isDetecting ? <RefreshCw size={13} className="spin" /> : <List size={13} />}
+                        {isDetecting ? 'Scansione...' : 'Sistema Indice'}
+                      </button>
+                    )}
                   </div>
 
                   {showChapters && detectedChapters.length > 0 && (

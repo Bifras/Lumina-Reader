@@ -16,6 +16,10 @@ export interface MetadataSearchResult {
   itunesFailed: boolean
 }
 
+export interface RankedMetadataSearchResult extends MetadataSearchResult {
+  bestMatch: WebMetadata | null
+}
+
 export class MetadataService {
   private static TIMEOUT_MS = 8000
 
@@ -50,6 +54,85 @@ export class MetadataService {
     if (itunesResult.status === 'fulfilled') results.push(...itunesResult.value)
 
     return { results, googleFailed, openLibraryFailed, itunesFailed }
+  }
+
+  static async searchBestMetadata(title: string, author?: string): Promise<RankedMetadataSearchResult> {
+    const result = await this.searchMetadata(title, author)
+    return {
+      ...result,
+      bestMatch: this.pickBestMatch(title, author, result.results)
+    }
+  }
+
+  static pickBestMatch(title: string, author: string | undefined, results: WebMetadata[]): WebMetadata | null {
+    const scored = results
+      .map((item) => ({
+        item,
+        score: this.scoreMetadataMatch(title, author, item)
+      }))
+      .sort((a, b) => b.score - a.score)
+
+    if (scored.length === 0 || scored[0].score < 0.45) {
+      return null
+    }
+
+    return scored[0].item
+  }
+
+  private static scoreMetadataMatch(title: string, author: string | undefined, item: WebMetadata): number {
+    const titleScore = this.computeSimilarity(title, item.title)
+    const authorScore = author?.trim()
+      ? this.computeSimilarity(author, item.author)
+      : 0.5
+
+    return (
+      (titleScore * 0.72) +
+      (authorScore * 0.23) +
+      (this.sourceWeight(item.source) * 0.05)
+    )
+  }
+
+  private static computeSimilarity(left: string, right: string): number {
+    const a = this.normalizeText(left)
+    const b = this.normalizeText(right)
+
+    if (!a || !b) return 0
+    if (a === b) return 1
+    if (a.includes(b) || b.includes(a)) return 0.9
+
+    const aTokens = new Set(a.split(' ').filter(token => token.length > 1))
+    const bTokens = new Set(b.split(' ').filter(token => token.length > 1))
+    const union = new Set([...aTokens, ...bTokens])
+    if (union.size === 0) return 0
+
+    let intersection = 0
+    for (const token of aTokens) {
+      if (bTokens.has(token)) intersection += 1
+    }
+
+    return intersection / union.size
+  }
+
+  private static normalizeText(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+  }
+
+  private static sourceWeight(source: WebMetadata['source']): number {
+    switch (source) {
+      case 'google':
+        return 1
+      case 'openlibrary':
+        return 0.95
+      case 'itunes':
+        return 0.9
+      default:
+        return 0.85
+    }
   }
 
   private static async fetchFromGoogleBooks(query: string): Promise<WebMetadata[]> {

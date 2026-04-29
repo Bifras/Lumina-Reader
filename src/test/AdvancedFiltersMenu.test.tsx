@@ -35,8 +35,9 @@ describe('AdvancedFiltersMenu', () => {
     )
     expect(screen.getByText('Filtri Avanzati')).toBeInTheDocument()
     expect(screen.getByLabelText('Genere')).toBeInTheDocument()
-    expect(screen.getByLabelText('Valutazione minima')).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'Valutazione minima' })).toBeInTheDocument()
     expect(screen.getByText('Solo Preferiti')).toBeInTheDocument()
+    expect(screen.getByText('Nessun filtro attivo')).toBeInTheDocument()
   })
 
   it('calls setAdvancedFilters when a filter is changed', () => {
@@ -54,7 +55,27 @@ describe('AdvancedFiltersMenu', () => {
     expect(mockSetAdvancedFilters).toHaveBeenCalledWith({ genre: 'Sci-Fi' })
   })
 
+  it('sets minimum rating from star buttons', () => {
+    render(
+      <AdvancedFiltersMenu
+        isOpen={true}
+        onClose={mockOnClose}
+        anchorRef={{ current: document.createElement('div') }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('radio', { name: '4+ stelle' }))
+
+    expect(mockSetAdvancedFilters).toHaveBeenCalledWith({ minRating: 4 })
+  })
+
   it('calls clearAdvancedFilters when reset is clicked', () => {
+    vi.mocked(useLibraryStore).mockReturnValue({
+      advancedFilters: { genre: 'Sci-Fi', minRating: 4 },
+      setAdvancedFilters: mockSetAdvancedFilters,
+      clearAdvancedFilters: mockClearAdvancedFilters,
+    } as any)
+
     render(
       <AdvancedFiltersMenu
         isOpen={true}
@@ -67,6 +88,6 @@ describe('AdvancedFiltersMenu', () => {
     fireEvent.click(resetBtn)
 
     expect(mockClearAdvancedFilters).toHaveBeenCalled()
-    expect(mockOnClose).toHaveBeenCalled()
+    expect(mockOnClose).not.toHaveBeenCalled()
   })
 })

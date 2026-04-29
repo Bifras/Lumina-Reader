@@ -58,6 +58,29 @@ describe('BookCard keyboard interaction', () => {
 })
 
 describe('BookCard visual elements', () => {
+  it('keeps full author available when the visual line wraps', () => {
+    const book: Book = {
+      id: 'book-1',
+      title: 'Book One',
+      author: 'Emmanuel Carrère',
+      progress: 0,
+      addedAt: Date.now(),
+    }
+
+    render(
+      <BookCard
+        book={book}
+        onClick={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+
+    const metadataAuthor = screen.getAllByText('Emmanuel Carrère')
+      .find(element => element.classList.contains('author'))
+
+    expect(metadataAuthor).toHaveAttribute('title', 'Emmanuel Carrère')
+  })
+
   it('renders tags and genre if they exist', () => {
     const bookWithTags: Book & { tags?: { id: string; name: string }[] } = {
       id: 'book-1',

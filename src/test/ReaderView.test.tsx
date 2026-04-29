@@ -115,9 +115,15 @@ describe('ReaderView Component', () => {
     onReturnToLibrary: mockOnReturnToLibrary,
     onThemeChange: mockOnThemeChange,
     onFontSizeChange: mockOnFontSizeChange,
-    onFontChange: mockOnFontChange,
+    onReadingFontChange: mockOnFontChange,
     setShowHighlightPopup: mockSetShowHighlightPopup,
     loadingStep: null,
+    readingProgress: 42,
+    pageInfo: null,
+  }
+
+  const openReadingMenu = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Apri menu di lettura' }))
   }
 
   beforeEach(() => {
@@ -154,23 +160,24 @@ describe('ReaderView Component', () => {
   })
 
   describe('Menu/Toolbar Visibility', () => {
-    it('should render vertical toolbar when menu is visible', () => {
+    it('should render collapsed floating pill by default', () => {
       // Act
       render(<ReaderView {...defaultProps} />)
 
       // Assert
-      const toolbar = document.querySelector('.vertical-toolbar')
-      expect(toolbar).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Apri menu di lettura' })).toBeInTheDocument()
+      expect(document.querySelector('.floating-pill-expanded')).not.toBeInTheDocument()
     })
 
     it('should hide toolbar when zen mode is active', () => {
       // Arrange - We need to render and then trigger zen mode
       // The component manages zen mode internally
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find and click zen mode button
       const zenButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('title') === 'Modalità Zen'
+        (b) => b.getAttribute('title') === 'Zen Mode'
       )
 
       // Act
@@ -189,9 +196,7 @@ describe('ReaderView Component', () => {
       // The component manages this state internally
       const { container } = render(<ReaderView {...defaultProps} />)
 
-      // Initially menu is visible, so toggle button should not be visible
-      let toggleButton = container.querySelector('.menu-toggle')
-      expect(toggleButton).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Apri menu di lettura' })).toBeInTheDocument()
     })
   })
 
@@ -207,10 +212,11 @@ describe('ReaderView Component', () => {
     it('should show TOC panel when TOC button is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find and click the TOC button
       const tocButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra indice'
+        (b) => b.getAttribute('aria-label') === 'Apri indice'
       )
 
       // Act
@@ -227,10 +233,11 @@ describe('ReaderView Component', () => {
     it('should render TOC items when panel is open', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open TOC panel
       const tocButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra indice'
+        (b) => b.getAttribute('aria-label') === 'Apri indice'
       )
 
       // Act
@@ -248,10 +255,11 @@ describe('ReaderView Component', () => {
     it('should call onGoToTOCItem when TOC item is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open TOC
       const tocButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra indice'
+        (b) => b.getAttribute('aria-label') === 'Apri indice'
       )
       if (tocButton) fireEvent.click(tocButton)
 
@@ -281,10 +289,11 @@ describe('ReaderView Component', () => {
     it('should show bookmarks panel when bookmarks button is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find and click the bookmarks button
       const bookmarksButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra segnalibri'
+        (b) => b.getAttribute('aria-label') === 'Apri segnalibri'
       )
 
       // Act
@@ -301,10 +310,11 @@ describe('ReaderView Component', () => {
     it('should show empty state when no bookmarks', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open bookmarks panel
       const bookmarksButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra segnalibri'
+        (b) => b.getAttribute('aria-label') === 'Apri segnalibri'
       )
       if (bookmarksButton) fireEvent.click(bookmarksButton)
 
@@ -324,10 +334,11 @@ describe('ReaderView Component', () => {
         ],
       }
       const { container } = render(<ReaderView {...props} />)
+      openReadingMenu()
 
       // Open bookmarks panel
       const bookmarksButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra segnalibri'
+        (b) => b.getAttribute('aria-label') === 'Apri segnalibri'
       )
       if (bookmarksButton) fireEvent.click(bookmarksButton)
 
@@ -341,10 +352,11 @@ describe('ReaderView Component', () => {
     it('should call onAddBookmark when add bookmark button is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open bookmarks panel
       const bookmarksButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra segnalibri'
+        (b) => b.getAttribute('aria-label') === 'Apri segnalibri'
       )
       if (bookmarksButton) fireEvent.click(bookmarksButton)
 
@@ -368,10 +380,11 @@ describe('ReaderView Component', () => {
         bookmarks: [{ id: '1', cfi: 'epubcfi(/6/4)', label: 'Test Bookmark' }],
       }
       const { container } = render(<ReaderView {...props} />)
+      openReadingMenu()
 
       // Open bookmarks panel
       const bookmarksButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra segnalibri'
+        (b) => b.getAttribute('aria-label') === 'Apri segnalibri'
       )
       if (bookmarksButton) fireEvent.click(bookmarksButton)
 
@@ -395,12 +408,13 @@ describe('ReaderView Component', () => {
       render(<ReaderView {...defaultProps} />)
 
       // Assert
-      expect(screen.queryByText('Ricerca')).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('Cerca nel testo...')).not.toBeInTheDocument()
     })
 
     it('should show search panel when search button is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find and click the search button
       const searchButton = Array.from(container.querySelectorAll('button')).find(
@@ -414,13 +428,14 @@ describe('ReaderView Component', () => {
 
       // Assert
       await waitFor(() => {
-        expect(screen.getByText('Ricerca')).toBeInTheDocument()
+        expect(screen.getByPlaceholderText('Cerca nel testo...')).toBeInTheDocument()
       })
     })
 
     it('should render search input field', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open search panel
       const searchButton = Array.from(container.querySelectorAll('button')).find(
@@ -442,16 +457,17 @@ describe('ReaderView Component', () => {
       render(<ReaderView {...defaultProps} />)
 
       // Assert
-      expect(screen.queryByText('Impostazioni di lettura')).not.toBeInTheDocument()
+      expect(screen.queryByText('Impostazioni')).not.toBeInTheDocument()
     })
 
     it('should show settings panel when settings button is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find and click the settings button
       const settingsButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
 
       // Act
@@ -461,17 +477,18 @@ describe('ReaderView Component', () => {
 
       // Assert
       await waitFor(() => {
-        expect(screen.getByText('Impostazioni di lettura')).toBeInTheDocument()
+        expect(screen.getByText('Impostazioni')).toBeInTheDocument()
       })
     })
 
     it('should render theme selector in settings', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open settings
       const settingsButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
       if (settingsButton) fireEvent.click(settingsButton)
 
@@ -484,10 +501,11 @@ describe('ReaderView Component', () => {
     it('should render font size controls in settings', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open settings
       const settingsButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
       if (settingsButton) fireEvent.click(settingsButton)
 
@@ -501,10 +519,11 @@ describe('ReaderView Component', () => {
     it('should call onFontSizeChange when decrease button is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open settings
       const settingsButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
       if (settingsButton) fireEvent.click(settingsButton)
 
@@ -528,10 +547,11 @@ describe('ReaderView Component', () => {
     it('should call onFontSizeChange when increase button is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open settings
       const settingsButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
       if (settingsButton) fireEvent.click(settingsButton)
 
@@ -559,16 +579,17 @@ describe('ReaderView Component', () => {
       render(<ReaderView {...defaultProps} />)
 
       // Assert
-      expect(screen.queryByText('Impostazioni di lettura')).not.toBeInTheDocument()
+      expect(screen.queryByText('Impostazioni')).not.toBeInTheDocument()
     })
 
     it('should show quick typography panel when button is clicked', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find and click the typography button
       const typographyButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
 
       // Act
@@ -578,17 +599,18 @@ describe('ReaderView Component', () => {
 
       // Assert
       await waitFor(() => {
-        expect(screen.getByText('Impostazioni di lettura')).toBeInTheDocument()
+        expect(screen.getByText('Impostazioni')).toBeInTheDocument()
       })
     })
 
     it('should render font size slider in quick typography', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open quick typography
       const typographyButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
       if (typographyButton) fireEvent.click(typographyButton)
 
@@ -601,10 +623,11 @@ describe('ReaderView Component', () => {
     it('should render quick font options', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open quick typography
       const typographyButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
       if (typographyButton) fireEvent.click(typographyButton)
 
@@ -617,10 +640,11 @@ describe('ReaderView Component', () => {
     it('should render quick theme options', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open quick typography
       const typographyButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Impostazioni di lettura'
+        (b) => b.getAttribute('aria-label') === 'Apri impostazioni'
       )
       if (typographyButton) fireEvent.click(typographyButton)
 
@@ -635,10 +659,11 @@ describe('ReaderView Component', () => {
     it('should close TOC when another panel is opened', async () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Open TOC
       const tocButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra indice'
+        (b) => b.getAttribute('aria-label') === 'Apri indice'
       )
       if (tocButton) fireEvent.click(tocButton)
 
@@ -646,11 +671,8 @@ describe('ReaderView Component', () => {
         expect(screen.getByText('Indice')).toBeInTheDocument()
       })
 
-      // Open bookmarks
-      const bookmarksButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Mostra segnalibri'
-      )
-      if (bookmarksButton) fireEvent.click(bookmarksButton)
+      // Switch to bookmarks in the unified panel
+      fireEvent.click(screen.getByRole('button', { name: /Segnalibri/i }))
 
       // Assert - TOC should be closed when bookmarks opens
       await waitFor(() => {
@@ -663,10 +685,11 @@ describe('ReaderView Component', () => {
     it('should call onPrevPage when previous page button is clicked', () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find prev page button
       const prevButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Vai alla pagina precedente'
+        (b) => b.getAttribute('aria-label') === 'Pagina precedente'
       )
 
       // Act
@@ -681,10 +704,11 @@ describe('ReaderView Component', () => {
     it('should call onNextPage when next page button is clicked', () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find next page button
       const nextButton = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.getAttribute('aria-label') === 'Vai alla pagina successiva'
+        (b) => b.getAttribute('aria-label') === 'Pagina successiva'
       )
 
       // Act
@@ -699,6 +723,7 @@ describe('ReaderView Component', () => {
     it('should call onReturnToLibrary when library button is clicked', () => {
       // Arrange
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Find library button
       const libraryButton = Array.from(container.querySelectorAll('button')).find(
@@ -719,14 +744,15 @@ describe('ReaderView Component', () => {
     it('should have aria-label on toolbar buttons', () => {
       // Act
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
 
       // Assert - Check for key buttons
-      const toolbar = container.querySelector('.vertical-toolbar')
-      expect(toolbar).toBeInTheDocument()
+      const pill = container.querySelector('.floating-pill-expanded')
+      expect(pill).toBeInTheDocument()
 
       // Check for aria-labels on navigation buttons
-      const prevButton = container.querySelector('[aria-label="Vai alla pagina precedente"]')
-      const nextButton = container.querySelector('[aria-label="Vai alla pagina successiva"]')
+      const prevButton = container.querySelector('[aria-label="Pagina precedente"]')
+      const nextButton = container.querySelector('[aria-label="Pagina successiva"]')
       const libraryButton = container.querySelector('[aria-label="Torna alla libreria"]')
 
       expect(prevButton).toBeInTheDocument()
@@ -737,6 +763,8 @@ describe('ReaderView Component', () => {
     it('should have aria-pressed state for toggle buttons', () => {
       // Act
       const { container } = render(<ReaderView {...defaultProps} />)
+      openReadingMenu()
+      fireEvent.click(screen.getByRole('button', { name: 'Apri indice' }))
 
       // Find buttons with aria-pressed
       const pressedButtons = container.querySelectorAll('[aria-pressed]')

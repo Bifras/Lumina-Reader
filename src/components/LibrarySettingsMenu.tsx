@@ -132,7 +132,7 @@ const SettingsMenu = memo(function SettingsMenu({
         <motion.div
             key="library-settings-dropdown"
             ref={dropdownRef}
-          className="library-settings-dropdown"
+          className="library-settings-dropdown library-settings-dropdown--view"
           initial={{ opacity: 0, y: -20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20, scale: 0.95 }}
@@ -169,14 +169,13 @@ const SettingsMenu = memo(function SettingsMenu({
             </div>
           </div>
 
-          {/* SECTION 1: STRUCTURE */}
-          <div className="library-settings-section">
-            <label className="library-settings-label" id="view-mode-label">Struttura & Layout</label>
+          <div className="library-settings-body">
+          <div className="library-settings-section library-settings-section--view">
+            <label className="library-settings-label" id="view-mode-label">Vista</label>
             <div 
               className="library-settings-segmented" 
               role="radiogroup" 
               aria-labelledby="view-mode-label"
-              style={{ marginBottom: '12px' }}
             >
               {viewModes.map(({ id, icon: Icon, label }) => (
                 <button 
@@ -193,9 +192,8 @@ const SettingsMenu = memo(function SettingsMenu({
               ))}
             </div>
 
-            {/* Card Size (Disabled in List view) */}
             <div className={`library-settings-size-control ${viewMode === 'list' ? 'disabled' : ''}`}>
-              <span className="library-settings-size-label">A</span>
+              <span className="library-settings-size-label">Copertine</span>
               <input 
                 type="range"
                 min="120"
@@ -210,116 +208,119 @@ const SettingsMenu = memo(function SettingsMenu({
                 aria-valuenow={cardSize}
                 disabled={viewMode === 'list'}
               />
-              <span className="library-settings-size-label" style={{ fontSize: '1.2rem' }}>A</span>
+              <span className="library-settings-size-value">{cardSize}px</span>
             </div>
           </div>
 
-          <div className="library-settings-divider" />
-
-          {/* SECTION 2: ORGANIZATION */}
-          <div className="library-settings-section">
-            <label className="library-settings-label" id="sort-label">Organizzazione</label>
-            <div className="library-settings-sort-grid" style={{ marginBottom: '8px' }}>
-              <div className="library-settings-select-wrapper">
-                <select 
-                  className="library-settings-select"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  aria-label="Ordina per"
-                >
-                  {sortOptions.map(({ id, label }) => (
-                    <option key={id} value={id}>{label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="library-settings-select-icon" aria-hidden="true" />
+          <div className="library-settings-section library-settings-section--organize">
+            <label className="library-settings-label" id="sort-label">Ordina</label>
+            <div className="library-settings-control-stack">
+              <div className="library-settings-control-row">
+                <span className="library-settings-control-label">Per</span>
+                <div className="library-settings-sort-grid">
+                  <div className="library-settings-select-wrapper">
+                    <select 
+                      className="library-settings-select"
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as SortOption)}
+                      aria-label="Ordina per"
+                    >
+                      {sortOptions.map(({ id, label }) => (
+                        <option key={id} value={id}>{label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="library-settings-select-icon" aria-hidden="true" />
+                  </div>
+                  
+                  <div className="library-settings-segmented compact">
+                    <button 
+                      className={`library-settings-chip small ${sortDirection === 'asc' ? 'active' : ''}`}
+                      onClick={() => sortDirection !== 'asc' && toggleSortDirection()}
+                      title="Crescente"
+                      aria-label="Ordine Crescente"
+                    >
+                      <ChevronUp size={16} />
+                    </button>
+                    <button 
+                      className={`library-settings-chip small ${sortDirection === 'desc' ? 'active' : ''}`}
+                      onClick={() => sortDirection !== 'desc' && toggleSortDirection()}
+                      title="Decrescente"
+                      aria-label="Ordine Decrescente"
+                    >
+                      <ChevronDown size={16} />
+                    </button>
+                  </div>
+                </div>
               </div>
-              
-              <div className="library-settings-segmented compact">
-                <button 
-                  className={`library-settings-chip small ${sortDirection === 'asc' ? 'active' : ''}`}
-                  onClick={() => sortDirection !== 'asc' && toggleSortDirection()}
-                  title="Crescente"
-                  aria-label="Ordine Crescente"
-                >
-                  <ChevronUp size={16} />
-                </button>
-                <button 
-                  className={`library-settings-chip small ${sortDirection === 'desc' ? 'active' : ''}`}
-                  onClick={() => sortDirection !== 'desc' && toggleSortDirection()}
-                  title="Decrescente"
-                  aria-label="Ordine Decrescente"
-                >
-                  <ChevronDown size={16} />
-                </button>
+
+              <div className="library-settings-control-row">
+                <span className="library-settings-control-label">Gruppi</span>
+                <div className="library-settings-select-wrapper">
+                  <select 
+                    className="library-settings-select"
+                    value={groupBy}
+                    onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
+                    aria-label="Raggruppa per"
+                  >
+                    {groupOptions.map(({ id, label }) => (
+                      <option key={id} value={id}>Raggruppa: {label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="library-settings-select-icon" aria-hidden="true" />
+                </div>
               </div>
             </div>
+          </div>
 
-            <div className="library-settings-select-wrapper">
-              <select 
-                className="library-settings-select"
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
-                aria-label="Raggruppa per"
-              >
-                {groupOptions.map(({ id, label }) => (
-                  <option key={id} value={id}>Raggruppa: {label}</option>
+          <div className="library-settings-secondary-grid">
+            <div className="library-settings-section library-settings-section--details">
+              <label className="library-settings-label" id="display-label">Mostra</label>
+              <div className="library-settings-chips-wrap" role="group" aria-labelledby="display-label">
+                {[
+                  { id: 'progress', label: 'Progresso', checked: showProgress, onChange: setShowProgress },
+                  { id: 'author', label: 'Autore', checked: showAuthor, onChange: setShowAuthor },
+                  { id: 'rating', label: 'Voto', checked: showRating, onChange: setShowRating },
+                  { id: 'collection', label: 'Collezione', checked: showCollection, onChange: setShowCollection },
+                  { id: 'date', label: 'Data', checked: showDate, onChange: setShowDate },
+                  { id: 'genre', label: 'Genere', checked: showGenre, onChange: setShowGenre }
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    className={`library-settings-toggle-chip ${opt.checked ? 'active' : ''}`}
+                    onClick={() => opt.onChange(!opt.checked)}
+                    aria-pressed={opt.checked}
+                    role="button"
+                  >
+                    {opt.checked && <Check size={13} aria-hidden="true" />}
+                    {opt.label}
+                  </button>
                 ))}
-              </select>
-              <ChevronDown size={14} className="library-settings-select-icon" aria-hidden="true" />
+              </div>
+            </div>
+
+            <div className="library-settings-section library-settings-section--theme">
+              <label className="library-settings-label" id="theme-label">Tema</label>
+              <div 
+                className="library-settings-segmented library-settings-segmented--theme" 
+                role="radiogroup" 
+                aria-labelledby="theme-label"
+              >
+                {themes.map(({ id, icon: Icon, label }) => (
+                  <button 
+                    key={id}
+                    className={`library-settings-chip ${libraryTheme === id ? 'active' : ''}`}
+                    onClick={() => handleThemeChange(id)}
+                    role="radio"
+                    aria-checked={libraryTheme === id}
+                    aria-label={`Tema ${label}`}
+                  >
+                    <Icon size={18} aria-hidden="true" />
+                    <span className="library-settings-chip-text">{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-
-          <div className="library-settings-divider" />
-
-          {/* SECTION 3: DETAILS (Chips) */}
-          <div className="library-settings-section">
-            <label className="library-settings-label" id="display-label">Dettagli Visibili</label>
-            <div className="library-settings-chips-wrap" role="group" aria-labelledby="display-label">
-              {[
-                { id: 'progress', label: 'Progresso', checked: showProgress, onChange: setShowProgress },
-                { id: 'author', label: 'Autore', checked: showAuthor, onChange: setShowAuthor },
-                { id: 'rating', label: 'Voto', checked: showRating, onChange: setShowRating },
-                { id: 'collection', label: 'Collezione', checked: showCollection, onChange: setShowCollection },
-                { id: 'date', label: 'Data', checked: showDate, onChange: setShowDate },
-                { id: 'genre', label: 'Genere', checked: showGenre, onChange: setShowGenre }
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  className={`library-settings-toggle-chip ${opt.checked ? 'active' : ''}`}
-                  onClick={() => opt.onChange(!opt.checked)}
-                  aria-pressed={opt.checked}
-                  role="button"
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="library-settings-divider" />
-
-          {/* SECTION 4: AESTHETICS */}
-          <div className="library-settings-section">
-            <label className="library-settings-label" id="theme-label">Estetica Generale</label>
-            <div 
-              className="library-settings-segmented" 
-              role="radiogroup" 
-              aria-labelledby="theme-label"
-            >
-              {themes.map(({ id, icon: Icon, label }) => (
-                <button 
-                  key={id}
-                  className={`library-settings-chip ${libraryTheme === id ? 'active' : ''}`}
-                  onClick={() => handleThemeChange(id)}
-                  role="radio"
-                  aria-checked={libraryTheme === id}
-                  aria-label={`Tema ${label}`}
-                >
-                  <Icon size={18} aria-hidden="true" />
-                  <span className="library-settings-chip-text">{label}</span>
-                </button>
-              ))}
-            </div>
           </div>
         </motion.div>
       )}

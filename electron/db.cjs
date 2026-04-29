@@ -16,13 +16,19 @@ class DatabaseManager {
         title TEXT NOT NULL,
         author TEXT,
         cover TEXT,
+        description TEXT,
+        publisher TEXT,
+        publishedDate TEXT,
+        metadataSource TEXT,
         cfi TEXT,
         progress REAL DEFAULT 0,
         addedAt INTEGER,
         lastOpened INTEGER,
         isFavorite INTEGER DEFAULT 0,
         genre TEXT,
-        rating INTEGER DEFAULT 0
+        rating INTEGER DEFAULT 0,
+        tags TEXT,
+        tocOverride TEXT
       );
 
       CREATE TABLE IF NOT EXISTS collections (
@@ -82,41 +88,86 @@ class DatabaseManager {
     if (!columns.find(c => c.name === 'parentId')) {
       this.db.exec("ALTER TABLE collections ADD COLUMN parentId TEXT");
     }
+
+    const bookColumns = this.db.prepare("PRAGMA table_info(books)").all();
+    const requiredBookColumns = [
+      ['description', 'TEXT'],
+      ['publisher', 'TEXT'],
+      ['publishedDate', 'TEXT'],
+      ['metadataSource', 'TEXT'],
+      ['tags', 'TEXT'],
+      ['tocOverride', 'TEXT']
+    ];
+
+    for (const [name, type] of requiredBookColumns) {
+      if (!bookColumns.find((column) => column.name === name)) {
+        this.db.exec(`ALTER TABLE books ADD COLUMN ${name} ${type}`);
+      }
+    }
+  }
+
+  hydrateBook(book) {
+    if (!book) return book;
+
+    const parseJsonField = (value, fallback) => {
+      if (!value) return fallback;
+      try {
+        return JSON.parse(value);
+      } catch {
+        return fallback;
+      }
+    };
+
+    return {
+      ...book,
+      isFavorite: !!book.isFavorite,
+      tags: parseJsonField(book.tags, []),
+      tocOverride: parseJsonField(book.tocOverride, undefined)
+    };
   }
 
   // --- Books ---
 
   getAllBooks() {
     const books = this.db.prepare('SELECT * FROM books').all();
-    // Convert isFavorite back to boolean
-    return books.map(b => ({ ...b, isFavorite: !!b.isFavorite }));
+    return books.map((book) => this.hydrateBook(book));
   }
 
   saveBook(book) {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO books (id, title, author, cover, cfi, progress, addedAt, lastOpened, isFavorite, genre, rating)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO books (
+        id, title, author, cover, description, publisher, publishedDate, metadataSource,
+        cfi, progress, addedAt, lastOpened, isFavorite, genre, rating, tags, tocOverride
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       book.id,
       book.title,
       book.author,
       book.cover,
+      book.description,
+      book.publisher,
+      book.publishedDate,
+      book.metadataSource,
       book.cfi,
       book.progress,
       book.addedAt,
       book.lastOpened,
       book.isFavorite ? 1 : 0,
       book.genre,
-      book.rating
+      book.rating,
+      JSON.stringify(Array.isArray(book.tags) ? book.tags : []),
+      Array.isArray(book.tocOverride) && book.tocOverride.length > 0
+        ? JSON.stringify(book.tocOverride)
+        : null
     );
     return this.getBookById(book.id);
   }
 
   getBookById(id) {
     const book = this.db.prepare('SELECT * FROM books WHERE id = ?').get(id);
-    if (book) book.isFavorite = !!book.isFavorite;
-    return book;
+    return this.hydrateBook(book);
   }
 
   deleteBook(id) {
@@ -229,7 +280,7 @@ class DatabaseManager {
     }
 
     const books = this.db.prepare(query).all(...params);
-    return books.map(b => ({ ...b, isFavorite: !!b.isFavorite }));
+    return books.map((book) => this.hydrateBook(book));
   }
 
   // --- Book-Collection Relationships ---
@@ -298,8 +349,11 @@ class DatabaseManager {
 
   batchInsertBooks(books) {
     const insert = this.db.prepare(`
-      INSERT OR REPLACE INTO books (id, title, author, cover, cfi, progress, addedAt, lastOpened, isFavorite, genre, rating)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO books (
+        id, title, author, cover, description, publisher, publishedDate, metadataSource,
+        cfi, progress, addedAt, lastOpened, isFavorite, genre, rating, tags, tocOverride
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertMany = this.db.transaction((books) => {
@@ -309,13 +363,21 @@ class DatabaseManager {
           book.title,
           book.author,
           book.cover,
+          book.description,
+          book.publisher,
+          book.publishedDate,
+          book.metadataSource,
           book.cfi,
           book.progress,
           book.addedAt,
           book.lastOpened,
           book.isFavorite ? 1 : 0,
           book.genre,
-          book.rating
+          book.rating,
+          JSON.stringify(Array.isArray(book.tags) ? book.tags : []),
+          Array.isArray(book.tocOverride) && book.tocOverride.length > 0
+            ? JSON.stringify(book.tocOverride)
+            : null
         );
       }
     });

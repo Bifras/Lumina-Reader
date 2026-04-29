@@ -406,6 +406,35 @@ export const useBookLoader = (
   const pageTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const observerRef = useRef<MutationObserver | null>(null)
 
+  // Resize handler: recalculate rendition dimensions when window resizes
+  useEffect(() => {
+    if (!rendition) return
+
+    let resizeTimeout: ReturnType<typeof setTimeout>
+    const handleResize = () => {
+      clearTimeout(resizeTimeout)
+      resizeTimeout = setTimeout(() => {
+        if (rendition && viewerRef.current) {
+          const viewerHeight = viewerRef.current.clientHeight
+          const viewerWidth = viewerRef.current.clientWidth
+          if (viewerHeight && viewerWidth) {
+            try {
+              rendition.resize(viewerWidth, viewerHeight)
+            } catch (e) {
+              console.warn('[WARN] Failed to resize rendition:', e)
+            }
+          }
+        }
+      }, 150) // Debounce to avoid excessive resizes
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => {
+      clearTimeout(resizeTimeout)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [rendition, viewerRef])
+
   const applyPrepaintStyles = useCallback((doc: Document): void => {
     const { background, text } = themeRef.current
     const styleId = 'lumina-prepaint-styles'
@@ -576,14 +605,15 @@ export const useBookLoader = (
 
 
       const width = viewerRef.current.clientWidth || undefined
-      const titleBarHeight = 32
-      const bookHeaderHeight = 70
-      const pillAreaHeight = 96
-      const availableHeight = (viewerRef.current.clientHeight || window.innerHeight) - titleBarHeight - bookHeaderHeight - pillAreaHeight
+      // Use the CSS-computed height from flexbox layout.
+      // The viewer div uses flex:1 inside the reader-container,
+      // and a bottom spacer reserves room for the floating pill.
+      // No manual subtractions needed — CSS handles the layout.
+      const viewerHeight = viewerRef.current.clientHeight
 
       const newRendition = book.renderTo(viewerRef.current, {
         width: width || '100%',
-        height: Math.max(availableHeight, 200),
+        height: viewerHeight || '100%',
         flow: 'paginated',
         manager: 'default',
         allowScriptedContent: false // SECURITY: Disabled to prevent XSS/RCE from malicious EPUBs

@@ -120,6 +120,31 @@ export class ChapterDetector {
     }
   }
 
+  static async generateOptimizedTOCFromFile(buffer: ArrayBuffer): Promise<TOCEntry[]> {
+    try {
+      const zip = await this.loadZip(buffer)
+      const opfPath = this.findOPF(zip)
+      const packageData = opfPath ? this.parsePackage(zip, opfPath) : null
+      const existingTOC = packageData ? this.extractExistingTOC(zip, packageData) : []
+      const normalizedExisting = this.normalizeTOC(existingTOC)
+      const detected = this.normalizeTOC(await this.detectFromFile(buffer))
+      const existingScore = this.evaluateTOC(normalizedExisting).score
+
+      if (normalizedExisting.length >= 2 && existingScore >= 0.7) {
+        return normalizedExisting
+      }
+
+      if (detected.length > 0) {
+        return detected
+      }
+
+      return normalizedExisting
+    } catch (e) {
+      console.warn('[ChapterDetector] optimized TOC error:', e)
+      return this.detectFromFile(buffer)
+    }
+  }
+
   // --- ZIP parsing ---
 
   private static async loadZip(buffer: ArrayBuffer): Promise<Record<string, string>> {
@@ -251,6 +276,56 @@ export class ChapterDetector {
     return spine
   }
 
+  private static parsePackage(zip: Record<string, string>, opfPath: string): {
+    opfDir: string
+    manifest: Map<string, { href: string; mediaType?: string; properties?: string }>
+    spineRefs: string[]
+    navPath: string | null
+    ncxPath: string | null
+  } | null {
+    const opf = zip[opfPath]
+    if (!opf) return null
+
+    const opfDir = opfPath.substring(0, opfPath.lastIndexOf('/') + 1)
+    const manifest = new Map<string, { href: string; mediaType?: string; properties?: string }>()
+    const itemTagRe = /<item\b([^>]+?)\/?>/gi
+    let match
+
+    while ((match = itemTagRe.exec(opf)) !== null) {
+      const attrs = this.parseAttributes(match[1])
+      if (!attrs.id || !attrs.href) continue
+      manifest.set(attrs.id, {
+        href: attrs.href,
+        mediaType: attrs['media-type'],
+        properties: attrs.properties
+      })
+    }
+
+    const spineRefs = this.parseSpine(zip, opfPath)
+    const spineAttrsMatch = opf.match(/<spine\b([^>]*)>/i)
+    const spineAttrs = spineAttrsMatch ? this.parseAttributes(spineAttrsMatch[1]) : {}
+    const ncxId = spineAttrs.toc
+
+    let navPath: string | null = null
+    let ncxPath: string | null = null
+
+    for (const [, item] of manifest) {
+      if (!navPath && item.properties?.split(/\s+/).includes('nav')) {
+        navPath = this.resolvePath(opfDir, item.href)
+      }
+
+      if (!ncxPath && item.mediaType === 'application/x-dtbncx+xml') {
+        ncxPath = this.resolvePath(opfDir, item.href)
+      }
+    }
+
+    if (!ncxPath && ncxId && manifest.has(ncxId)) {
+      ncxPath = this.resolvePath(opfDir, manifest.get(ncxId)!.href)
+    }
+
+    return { opfDir, manifest, spineRefs, navPath, ncxPath }
+  }
+
   // --- Heading extraction ---
 
   private static extractHeadings(html: string): { level: number; label: string }[] {
@@ -269,18 +344,28 @@ export class ChapterDetector {
   // --- TOC evaluation & cleaning ---
 
   static evaluateTOC(toc: TOCEntry[]): { score: number; issues: string[] } {
+    const normalized = this.normalizeTOC(toc)
     const issues: string[] = []
-    if (toc.length === 0) return { score: 0, issues: ['Indice vuoto'] }
+    if (normalized.length === 0) return { score: 0, issues: ['Indice vuoto'] }
 
     let score = 1
-    const emptyLabels = toc.filter(t => !t.label?.trim())
+    const emptyLabels = normalized.filter(t => !t.label?.trim())
     if (emptyLabels.length) { score -= 0.3; issues.push(`${emptyLabels.length} voci senza etichetta`) }
 
-    const longLabels = toc.filter(t => t.label?.length > 80)
+    const longLabels = normalized.filter(t => t.label?.length > 80)
     if (longLabels.length) { score -= 0.2; issues.push(`${longLabels.length} etichette troppo lunghe`) }
 
-    const htmlArtifacts = toc.filter(t => HTML_ARTIFACTS_RE.test(t.label || ''))
+    const htmlArtifacts = normalized.filter(t => HTML_ARTIFACTS_RE.test(t.label || ''))
     if (htmlArtifacts.length) { score -= 0.3; issues.push(`${htmlArtifacts.length} etichette con residui HTML`) }
+
+    const duplicateTargets = new Set<string>()
+    const duplicates = normalized.filter((entry) => {
+      const key = `${entry.label}::${entry.href}`
+      if (duplicateTargets.has(key)) return true
+      duplicateTargets.add(key)
+      return false
+    })
+    if (duplicates.length) { score -= 0.1; issues.push(`${duplicates.length} voci duplicate`) }
 
     return { score: Math.max(0, score), issues }
   }
@@ -291,6 +376,50 @@ export class ChapterDetector {
       label: this.cleanLabel(e.label),
       subitems: e.subitems ? this.cleanTOC(e.subitems) : undefined
     })).filter(e => e.label.length > 0)
+  }
+
+  static flattenTOC(toc: TOCEntry[], depth = 0): TOCEntry[] {
+    return toc.reduce((acc: TOCEntry[], item, index) => {
+      const currentLevel = item.level ?? depth
+      const flatItem: TOCEntry = {
+        id: item.id || `${depth}-${index + 1}`,
+        label: item.label,
+        href: item.href,
+        level: currentLevel
+      }
+
+      acc.push(flatItem)
+
+      if (item.subitems?.length) {
+        acc.push(...this.flattenTOC(item.subitems, currentLevel + 1))
+      }
+
+      return acc
+    }, [])
+  }
+
+  static normalizeTOC(toc: TOCEntry[]): TOCEntry[] {
+    const cleaned = this.cleanTOC(toc)
+    const flattened = this.flattenTOC(cleaned)
+
+    return flattened.map((entry, index) => ({
+      id: entry.id || String(index + 1),
+      label: entry.label,
+      href: entry.href,
+      level: entry.level || 0
+    }))
+  }
+
+  static findChapterByHref(toc: TOCEntry[], href: string): TOCEntry | null {
+    const normalized = this.normalizeTOC(toc)
+    const basePath = href.split('#')[0]
+    const baseFilename = this.getFilename(href)
+
+    return normalized.find((item) =>
+      item.href === href ||
+      item.href.split('#')[0] === basePath ||
+      this.getFilename(item.href) === baseFilename
+    ) || null
   }
 
   // --- Helpers ---
@@ -321,6 +450,105 @@ export class ChapterDetector {
 
   private static buildHierarchy(chapters: DetectedChapter[]): TOCEntry[] {
     if (chapters.length === 0) return []
-    return chapters.map((c, i) => ({ id: String(i + 1), label: c.label, href: c.href }))
+    const minLevel = chapters.reduce((min, chapter) => Math.min(min, Math.max(1, chapter.level || 1)), Number.POSITIVE_INFINITY)
+    return chapters.map((chapter, index) => ({
+      id: String(index + 1),
+      label: chapter.label,
+      href: chapter.href,
+      level: Math.max(0, (chapter.level || minLevel) - minLevel)
+    }))
+  }
+
+  private static extractExistingTOC(
+    zip: Record<string, string>,
+    packageData: NonNullable<ReturnType<typeof ChapterDetector.parsePackage>>
+  ): TOCEntry[] {
+    const navEntries = packageData.navPath ? this.extractNavTOC(zip[packageData.navPath] || '') : []
+    if (navEntries.length > 0) {
+      return navEntries
+    }
+
+    const ncxEntries = packageData.ncxPath ? this.extractNCXTOC(zip[packageData.ncxPath] || '') : []
+    return ncxEntries
+  }
+
+  private static extractNavTOC(html: string): TOCEntry[] {
+    if (!html) return []
+
+    const navMatch = html.match(/<nav\b[^>]*(?:epub:type=["'][^"']*\btoc\b[^"']*["']|role=["'][^"']*\bdoc-toc\b[^"']*["']|id=["']toc["'])[^>]*>[\s\S]*?<\/nav>/i)
+    const target = navMatch ? navMatch[0] : html
+    const entries: TOCEntry[] = []
+    const anchorRe = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
+    let match
+
+    while ((match = anchorRe.exec(target)) !== null) {
+      const href = match[1]?.trim()
+      const label = this.cleanLabel(match[2] || '')
+      if (!href || !label) continue
+      entries.push({
+        id: String(entries.length + 1),
+        href,
+        label,
+        level: 0
+      })
+    }
+
+    return entries
+  }
+
+  private static extractNCXTOC(xml: string): TOCEntry[] {
+    if (!xml) return []
+
+    const entries: TOCEntry[] = []
+    const navPointRe = /<navPoint\b[\s\S]*?<navLabel>[\s\S]*?<text>([\s\S]*?)<\/text>[\s\S]*?<content\b[^>]*src=["']([^"']+)["'][^>]*\/?>/gi
+    let match
+
+    while ((match = navPointRe.exec(xml)) !== null) {
+      const label = this.cleanLabel(match[1] || '')
+      const href = match[2]?.trim()
+      if (!label || !href) continue
+      entries.push({
+        id: String(entries.length + 1),
+        label,
+        href,
+        level: 0
+      })
+    }
+
+    return entries
+  }
+
+  private static parseAttributes(fragment: string): Record<string, string> {
+    const attrs: Record<string, string> = {}
+    const attrRe = /([\w:-]+)=["']([^"']*)["']/g
+    let match
+
+    while ((match = attrRe.exec(fragment)) !== null) {
+      attrs[match[1]] = match[2]
+    }
+
+    return attrs
+  }
+
+  private static resolvePath(baseDir: string, href: string): string {
+    const joined = `${baseDir}${href}`.replace(/\\/g, '/')
+    const parts = joined.split('/')
+    const resolved: string[] = []
+
+    for (const part of parts) {
+      if (!part || part === '.') continue
+      if (part === '..') {
+        resolved.pop()
+      } else {
+        resolved.push(part)
+      }
+    }
+
+    return resolved.join('/')
+  }
+
+  private static getFilename(url: string): string {
+    const parts = url.split('#')[0].split('/')
+    return parts[parts.length - 1] || url
   }
 }

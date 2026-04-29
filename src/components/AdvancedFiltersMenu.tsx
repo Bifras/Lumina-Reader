@@ -1,6 +1,6 @@
 import React, { memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Filter, X } from 'lucide-react'
+import { Filter, Heart, RotateCcw, Star, Tag, X } from 'lucide-react'
 import { useLibraryStore } from '../store/useLibraryStore'
 import { useFocusTrap } from '../hooks'
 import type { AdvancedFilters } from '../store/useLibraryStore'
@@ -56,8 +56,17 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
 
   const handleReset = () => {
     clearAdvancedFilters()
-    onClose()
   }
+
+  const activeFilters = React.useMemo(() => {
+    const filters: string[] = []
+    if (advancedFilters.genre) filters.push(advancedFilters.genre)
+    if (advancedFilters.minRating !== undefined) filters.push(`${advancedFilters.minRating}+ stelle`)
+    if (advancedFilters.isFavorite) filters.push('Preferiti')
+    return filters
+  }, [advancedFilters])
+
+  const hasActiveFilters = activeFilters.length > 0
 
   return (
     <AnimatePresence>
@@ -82,58 +91,88 @@ const AdvancedFiltersMenu = memo(function AdvancedFiltersMenu({
             </button>
           </div>
 
+          <div className="advanced-filters-menu__summary" aria-live="polite">
+            {hasActiveFilters ? (
+              activeFilters.map(filter => (
+                <span key={filter} className="advanced-filters-menu__summary-chip">
+                  {filter}
+                </span>
+              ))
+            ) : (
+              <span className="advanced-filters-menu__summary-empty">Nessun filtro attivo</span>
+            )}
+          </div>
+
           <div className="advanced-filters-menu__content">
             <div className="library-settings-section">
-              <label htmlFor="genre-filter" className="library-settings-label">Genere</label>
-              <input
-                id="genre-filter"
-                type="text"
-                placeholder="Es. Sci-Fi, Fantasy"
-                value={advancedFilters.genre || ''}
-                onChange={(e) => handleFilterChange('genre', e.target.value)}
-                className="library-search-input advanced-filters-menu__search"
-              />
+              <label htmlFor="genre-filter" className="library-settings-label">
+                <span>Genere</span>
+              </label>
+              <div className="advanced-filters-menu__field">
+                <Tag size={16} aria-hidden="true" />
+                <input
+                  id="genre-filter"
+                  type="text"
+                  placeholder="Es. Romanzo, Sci-Fi"
+                  value={advancedFilters.genre || ''}
+                  onChange={(e) => handleFilterChange('genre', e.target.value)}
+                  className="advanced-filters-menu__input"
+                />
+              </div>
             </div>
 
             <div className="library-settings-section">
-              <label htmlFor="min-rating-filter" className="library-settings-label">Valutazione minima</label>
-              <div className="library-settings-select-wrapper">
-                <select
-                  id="min-rating-filter"
-                  value={advancedFilters.minRating || ''}
-                  onChange={(e) => handleFilterChange('minRating', e.target.value ? Number(e.target.value) : undefined)}
-                  className="library-settings-select"
+              <label className="library-settings-label" id="min-rating-filter-label">Valutazione minima</label>
+              <div
+                className="advanced-filters-menu__rating"
+                role="radiogroup"
+                aria-labelledby="min-rating-filter-label"
+              >
+                <button
+                  type="button"
+                  className={`advanced-filters-menu__rating-clear ${advancedFilters.minRating === undefined ? 'active' : ''}`}
+                  onClick={() => handleFilterChange('minRating', undefined)}
+                  role="radio"
+                  aria-checked={advancedFilters.minRating === undefined}
                 >
-                  <option value="">Qualsiasi</option>
-                  <option value="1">1+ Stella</option>
-                  <option value="2">2+ Stelle</option>
-                  <option value="3">3+ Stelle</option>
-                  <option value="4">4+ Stelle</option>
-                  <option value="5">5 Stelle</option>
-                </select>
+                  Qualsiasi
+                </button>
+                {[1, 2, 3, 4, 5].map(rating => (
+                  <button
+                    key={rating}
+                    type="button"
+                    className={`advanced-filters-menu__rating-star ${advancedFilters.minRating === rating ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('minRating', rating)}
+                    role="radio"
+                    aria-checked={advancedFilters.minRating === rating}
+                    aria-label={`${rating}+ stelle`}
+                    title={`${rating}+ stelle`}
+                  >
+                    <Star size={16} aria-hidden="true" />
+                    <span>{rating}+</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="library-settings-section">
-              <div className="library-settings-display-options">
-                <label className={`library-settings-display-option ${advancedFilters.isFavorite ? 'active' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={advancedFilters.isFavorite || false}
-                    onChange={(e) => handleFilterChange('isFavorite', e.target.checked ? true : undefined)}
-                  />
-                  <div className="library-settings-check-icon">✓</div>
-                  <span className="library-settings-option-label">Solo Preferiti</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="library-settings-section advanced-filters-menu__actions">
+            <div className="library-settings-section advanced-filters-menu__footer">
               <button
-                className="primary-button-small prominent-action advanced-filters-menu__reset"
+                type="button"
+                className={`advanced-filters-menu__favorite ${advancedFilters.isFavorite ? 'active' : ''}`}
+                onClick={() => handleFilterChange('isFavorite', advancedFilters.isFavorite ? undefined : true)}
+                aria-pressed={advancedFilters.isFavorite || false}
+              >
+                <Heart size={17} aria-hidden="true" />
+                <span>Solo Preferiti</span>
+              </button>
+
+              <button
+                className="advanced-filters-menu__reset"
                 onClick={handleReset}
                 aria-label="Reset filtri"
+                disabled={!hasActiveFilters}
               >
+                <RotateCcw size={15} aria-hidden="true" />
                 <span>Reset filtri</span>
               </button>
             </div>

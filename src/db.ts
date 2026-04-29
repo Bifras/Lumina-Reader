@@ -188,7 +188,9 @@ class DatabaseService {
     }
 
     if (this.useSqlite) {
-      await window.electronAPI!.db!.saveBook(bookData)
+      const existingBook = await window.electronAPI!.db!.getBookById(bookData.id)
+      const mergedBook = existingBook ? { ...existingBook, ...bookData } : bookData
+      await window.electronAPI!.db!.saveBook(mergedBook)
       return this.getLibrary()
     }
 
@@ -418,6 +420,7 @@ export const countBooksInCollection = async (collectionId: string, library: Book
   return dbService.getCollectionBookCount(collectionId)
 }
 export const getLibrary = () => dbService.getLibrary()
+export const getBookById = (id: string) => dbService.getBookById(id)
 export const searchBooks = (filters: any) => dbService.searchBooks(filters)
 export const saveBookMetadata = (data: Book) => dbService.saveBookMetadata(data)
 export const updateProgress = (id: string, cfi: string, progress: number) => dbService.updateProgress(id, cfi, progress)

@@ -38,6 +38,7 @@ describe('LibrarySectionHeader', () => {
 
   const baseProps = {
     filteredCount: 3,
+    libraryCount: 3,
     searchValue: '',
     showSettings: false,
     settingsRef,
@@ -56,6 +57,7 @@ describe('LibrarySectionHeader', () => {
 
     expect(screen.getByText('3 libri')).toBeInTheDocument()
     expect(screen.getByLabelText('Cerca nella libreria')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Aggiungi Libro' })).toBeInTheDocument()
   })
 
   it('calls search handler when input changes', () => {
@@ -66,6 +68,16 @@ describe('LibrarySectionHeader', () => {
     })
 
     expect(onSearchValueChange).toHaveBeenCalledWith('dune')
+  })
+
+  it('uses a lighter header when the library is empty', () => {
+    render(<LibrarySectionHeader {...baseProps} filteredCount={0} libraryCount={0} />)
+
+    expect(screen.getByText('Nessun libro ancora')).toBeInTheDocument()
+    expect(screen.getByText('Pronto per il primo EPUB')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Cerca nella libreria')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Apri filtri avanzati')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Apri impostazioni libreria')).not.toBeInTheDocument()
   })
 
   it('shows resume button and triggers callback with book', () => {

@@ -117,6 +117,10 @@ const BookCard = memo(function BookCard({
   }, [viewMode, cardSize])
 
   const coverHeight = viewMode === 'compact' ? 160 : viewMode === 'list' ? 100 : Math.round(cardSize * 1.5)
+  const hasProgressMeta = showProgress && book.progress > 0
+  const hasInteractiveRating = showRating && Boolean(onRate)
+  const hasStaticRating = showRating && !onRate && book.rating !== undefined && book.rating > 0
+  const hasRatingMeta = hasInteractiveRating || hasStaticRating
 
   const noCoverClassName = useMemo(() => {
     // Generate a consistent color index (0-7) based on title hash
@@ -256,7 +260,7 @@ const BookCard = memo(function BookCard({
             )}
           </div>
           <div className="book-meta-row book-meta-row--secondary">
-            {showProgress && book.progress > 0 && (
+            {hasProgressMeta && (
               <span className="progress-text">{book.progress}% letto</span>
             )}
             {showGenre && book.genre && (
@@ -265,7 +269,7 @@ const BookCard = memo(function BookCard({
                 <span>{book.genre}</span>
               </span>
             )}
-            {showRating && onRate && (
+            {hasInteractiveRating && (
               <div
                 className="book-card__rating-wrapper"
                 onClick={handleRateClick}
@@ -278,7 +282,7 @@ const BookCard = memo(function BookCard({
                 />
               </div>
             )}
-            {showRating && !onRate && book.rating !== undefined && book.rating > 0 && (
+            {hasStaticRating && (
               <span className="rating-label">{book.rating}/5</span>
             )}
           </div>
@@ -427,15 +431,13 @@ const BookCard = memo(function BookCard({
           </div>
         )}
 
-        {((showProgress && book.progress > 0) ||
-          (showRating && onRate) ||
-          (showRating && !onRate && book.rating !== undefined && book.rating > 0)) && (
-          <div className="book-meta-bottom">
-            {showProgress && book.progress > 0 && (
+        {(hasProgressMeta || hasRatingMeta) && (
+          <div className={`book-meta-bottom ${!hasProgressMeta ? 'book-meta-bottom--rating-only' : ''}`}>
+            {hasProgressMeta && (
               <span className="progress-text">{book.progress}% letto</span>
             )}
 
-            {showRating && onRate && (
+            {hasInteractiveRating && (
               <div
                 className="book-card__rating-wrapper"
                 onClick={handleRateClick}
@@ -450,7 +452,7 @@ const BookCard = memo(function BookCard({
               </div>
             )}
 
-            {showRating && !onRate && book.rating !== undefined && book.rating > 0 && (
+            {hasStaticRating && (
               <span className="rating-label" aria-label={`Valutazione: ${book.rating} su 5 stelle`}>
                 ★ {book.rating}
               </span>

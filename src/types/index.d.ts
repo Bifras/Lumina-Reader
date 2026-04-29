@@ -10,6 +10,10 @@ export interface Book {
   title: string
   author?: string
   cover?: string
+  description?: string
+  publisher?: string
+  publishedDate?: string
+  metadataSource?: 'google' | 'openlibrary' | 'itunes'
   cfi?: string // EPUB CFI (Canonical Fragment Identifier) for current position
   progress: number // Reading progress 0-100
   addedAt: number
@@ -20,6 +24,7 @@ export interface Book {
   genre?: string // Book genre/category
   rating?: number // User rating 0-5 stars
   tags?: string[] // User-defined tags/genres
+  tocOverride?: TOCEntry[] // User-optimized TOC persisted locally
 }
 
 /**

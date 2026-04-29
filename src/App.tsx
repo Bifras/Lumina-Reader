@@ -418,8 +418,10 @@ function App(): React.ReactElement {
     ? metadata?.title || activeBook.title
     : ''
 
+  const hasWindowChrome = Boolean(window.electronAPI)
+
   return (
-    <div className={`app-container theme-${currentTheme}`}>
+    <div className={`app-container theme-${currentTheme} ${hasWindowChrome ? 'app-container--electron' : ''}`}>
       <WindowTitleBar
         theme={chromeTheme}
         contextLabel={activeBook ? currentChapter : ''}

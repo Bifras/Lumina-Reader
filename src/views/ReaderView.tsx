@@ -292,11 +292,14 @@ const ReaderView = ({
         ref={viewerRef}
         style={{
           width: '100%',
-          height: '100%',
+          flex: '1 1 auto',
           opacity: loadingStep === 'Rendering...' ? 0.5 : 1,
           transition: 'opacity 0.3s'
         }}
       />
+
+      {/* Bottom spacer: reserves space so EPUB text isn't hidden behind the floating pill */}
+      <div className="viewer-bottom-spacer" />
 
       {/* Floating Pill - Collapsed/Expanded */}
       {!zenMode && (
@@ -402,6 +405,7 @@ const ReaderView = ({
               <button
                 className={`unified-tab ${unifiedTab === 'toc' ? 'active' : ''}`}
                 onClick={() => setUnifiedTab('toc')}
+                aria-pressed={unifiedTab === 'toc'}
               >
                 <List size={16} />
                 <span>Indice</span>
@@ -409,6 +413,7 @@ const ReaderView = ({
               <button
                 className={`unified-tab ${unifiedTab === 'bookmarks' ? 'active' : ''}`}
                 onClick={() => setUnifiedTab('bookmarks')}
+                aria-pressed={unifiedTab === 'bookmarks'}
               >
                 <Bookmark size={16} />
                 <span>Segnalibri</span>
@@ -416,6 +421,7 @@ const ReaderView = ({
               <button
                 className={`unified-tab ${unifiedTab === 'search' ? 'active' : ''}`}
                 onClick={() => setUnifiedTab('search')}
+                aria-pressed={unifiedTab === 'search'}
               >
                 <Search size={16} />
                 <span>Cerca</span>
@@ -610,6 +616,7 @@ const ReaderView = ({
                 <button
                   className={`zen-toggle-btn ${zenMode ? 'active' : ''}`}
                   onClick={toggleZenMode}
+                  aria-pressed={zenMode}
                 >
                   <Maximize size={18} />
                   <span>{zenMode ? 'Disattiva' : 'Attiva'}</span>

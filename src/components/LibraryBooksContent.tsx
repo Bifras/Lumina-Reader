@@ -1,4 +1,4 @@
-import { memo, type CSSProperties } from 'react'
+import { memo, type CSSProperties, type KeyboardEvent } from 'react'
 import { Plus, Upload } from 'lucide-react'
 import type { GroupByOption, ViewMode } from '../store/useLibrarySettingsStore'
 import type { Book } from '../types'
@@ -47,6 +47,12 @@ const LibraryBooksContent = memo(function LibraryBooksContent({
   onEditBook,
   onRate,
 }: LibraryBooksContentProps) {
+  const handleUploadKeyDown = (e: KeyboardEvent<HTMLLabelElement>) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    document.getElementById('lib-upload')?.click()
+  }
+
   if (isLoading) {
     return (
       <div
@@ -65,6 +71,11 @@ const LibraryBooksContent = memo(function LibraryBooksContent({
       <div className={`empty-state ${isDragOver ? 'active' : ''}`}>
         <div className="dropzone">
           <Upload size={48} strokeWidth={1} color={isDragOver ? "var(--accent-warm)" : "var(--accent)"} aria-hidden="true" />
+          <h3>
+            {libraryCount === 0
+              ? 'Costruiamo la tua libreria'
+              : 'Nessun libro da mostrare'}
+          </h3>
           <p>
             {libraryCount === 0
               ? 'Trascina qui il tuo primo libro per iniziare'
@@ -72,7 +83,13 @@ const LibraryBooksContent = memo(function LibraryBooksContent({
           </p>
         </div>
         {libraryCount === 0 && (
-          <label htmlFor="lib-upload" className="primary-button-small prominent-action empty-state__action">
+          <label
+            htmlFor="lib-upload"
+            className="primary-button-small prominent-action empty-state__action"
+            role="button"
+            tabIndex={0}
+            onKeyDown={handleUploadKeyDown}
+          >
             <Plus size={20} aria-hidden="true" />
             <span>Aggiungi Libro</span>
           </label>

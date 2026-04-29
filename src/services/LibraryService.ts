@@ -1,7 +1,15 @@
 import { dbService } from '../db'
-import type { Book } from '../types'
+import type { Book, TOCEntry } from '../types'
+import { MetadataService } from './MetadataService'
+import { ChapterDetector } from './ChapterDetector'
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+
+export interface BookCalibrationDraft {
+  updates: Partial<Book>
+  toc: TOCEntry[]
+  bestMetadataFound: boolean
+}
 
 export class LibraryService {
   static async importBook(file: File): Promise<Book> {
@@ -127,6 +135,47 @@ export class LibraryService {
     return await this.getLibrary()
   }
 
+  static async buildBookCalibrationDraft(
+    book: Book,
+    arrayBuffer: ArrayBuffer,
+    query?: { title?: string; author?: string }
+  ): Promise<BookCalibrationDraft> {
+    const lookupTitle = query?.title?.trim() || book.title
+    const lookupAuthor = query?.author?.trim() || book.author
+
+    const [metadataResult, optimizedTOC] = await Promise.all([
+      MetadataService.searchBestMetadata(lookupTitle, lookupAuthor),
+      ChapterDetector.generateOptimizedTOCFromFile(arrayBuffer)
+    ])
+
+    const updates: Partial<Book> = {}
+    const bestMatch = metadataResult.bestMatch
+
+    if (bestMatch) {
+      updates.title = bestMatch.title || book.title
+      updates.author = bestMatch.author || book.author
+      if (bestMatch.cover) updates.cover = bestMatch.cover
+      if (bestMatch.genre) {
+        updates.genre = bestMatch.genre
+        updates.tags = this.mergeTags(book.tags, bestMatch.genre)
+      }
+      if (bestMatch.description) updates.description = bestMatch.description
+      if (bestMatch.publisher) updates.publisher = bestMatch.publisher
+      if (bestMatch.publishedDate) updates.publishedDate = bestMatch.publishedDate
+      updates.metadataSource = bestMatch.source
+    }
+
+    if (optimizedTOC.length > 0) {
+      updates.tocOverride = optimizedTOC
+    }
+
+    return {
+      updates,
+      toc: optimizedTOC,
+      bestMetadataFound: !!bestMatch
+    }
+  }
+
   static async searchBooks(filters: any): Promise<Book[]> {
     return await dbService.searchBooks(filters)
   }
@@ -140,5 +189,10 @@ export class LibraryService {
       }
       return book
     })
+  }
+
+  private static mergeTags(existingTags: string[] | undefined, newTag: string): string[] {
+    const tags = new Set([...(existingTags || []).filter(Boolean), newTag].map(tag => tag.trim()).filter(Boolean))
+    return Array.from(tags)
   }
 }

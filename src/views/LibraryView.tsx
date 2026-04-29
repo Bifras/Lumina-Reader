@@ -46,6 +46,7 @@ const LibraryView = memo(function LibraryView({
 }: LibraryViewProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const mainRef = useRef<HTMLDivElement>(null)
   const settingsRef = useRef<HTMLDivElement>(null)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -88,6 +89,10 @@ const LibraryView = memo(function LibraryView({
   useEffect(() => {
     setLastFilter(activeCollectionId)
   }, [activeCollectionId, setLastFilter])
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: 'auto' })
+  }, [library.length, activeCollectionId])
 
   // Find most recent in-progress book
   const lastReadBook = useMemo(() => getLastReadBook(library), [library])
@@ -177,8 +182,31 @@ const LibraryView = memo(function LibraryView({
     if (!bookToEdit) return []
     const buffer = await getBookFile(bookToEdit.id)
     if (!buffer) throw new Error('File non trovato')
-    return ChapterDetector.detectFromFile(buffer)
+    return ChapterDetector.generateOptimizedTOCFromFile(buffer)
   }, [bookToEdit])
+
+  const handleAutoCalibrate = useCallback(async (draft: { title: string; author: string }) => {
+    if (!bookToEdit) {
+      return { updates: {}, toc: [], bestMetadataFound: false }
+    }
+
+    const buffer = await getBookFile(bookToEdit.id)
+    if (!buffer) throw new Error('File non trovato')
+
+    const calibration = await LibraryService.buildBookCalibrationDraft(bookToEdit, buffer, draft)
+
+    if (addToast) {
+      const parts: string[] = []
+      if (calibration.bestMetadataFound) parts.push('metadati dal web trovati')
+      if (calibration.toc.length > 0) parts.push(`indice ottimizzato (${calibration.toc.length})`)
+      addToast(
+        parts.length > 0 ? parts.join(' • ') : 'Nessun miglioramento automatico trovato',
+        parts.length > 0 ? 'success' : 'warning'
+      )
+    }
+
+    return calibration
+  }, [bookToEdit, addToast])
 
   // Handle rating change
   const handleRate = useCallback(async (bookId: string, rating: number) => {
@@ -251,6 +279,7 @@ const LibraryView = memo(function LibraryView({
 
       {/* Main Content Area */}
       <motion.div
+        ref={mainRef}
         layout
         transition={{ type: 'tween', duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
         className={`library-main ${isSidebarCollapsed ? 'library-main--sidebar-collapsed' : ''}`}
@@ -258,6 +287,7 @@ const LibraryView = memo(function LibraryView({
         <div className="library-section">
           <LibrarySectionHeader
             filteredCount={filteredLibrary.length}
+            libraryCount={library.length}
             lastReadBook={lastReadBook}
             searchValue={searchValue}
             onSearchValueChange={setSearchValue}
@@ -305,6 +335,7 @@ const LibraryView = memo(function LibraryView({
         onClose={() => setBookToEdit(null)}
         onSave={handleSaveMetadata}
         onDetectChapters={handleDetectChapters}
+        onAutoCalibrate={handleAutoCalibrate}
       />
     </motion.div>
   )

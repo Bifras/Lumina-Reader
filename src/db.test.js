@@ -517,6 +517,26 @@ describe('db.js - File Storage Functions', () => {
       expect(window.electronAPI.db.saveBook).toHaveBeenCalledWith(bookData)
     })
 
+    it('should merge SQLite metadata updates with existing persisted fields', async () => {
+      window.electronAPI.db.getBookById.mockResolvedValue({
+        id: 'book-1',
+        title: 'Titolo originale',
+        progress: 0,
+        tags: ['storico'],
+        tocOverride: [{ id: '1', label: 'Capitolo 1', href: 'chapter1.xhtml' }]
+      })
+
+      await saveBookMetadata({ id: 'book-1', title: 'Titolo aggiornato' })
+
+      expect(window.electronAPI.db.saveBook).toHaveBeenCalledWith({
+        id: 'book-1',
+        title: 'Titolo aggiornato',
+        progress: 0,
+        tags: ['storico'],
+        tocOverride: [{ id: '1', label: 'Capitolo 1', href: 'chapter1.xhtml' }]
+      })
+    })
+
     it('should use SQLite for collections', async () => {
       const mockCollections = [{ id: 'all', name: 'All' }]
       window.electronAPI.db.getCollections.mockResolvedValue(mockCollections)

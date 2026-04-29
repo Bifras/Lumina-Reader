@@ -8,6 +8,7 @@ vi.mock('../store/useLibrarySettingsStore', () => ({
   useLibrarySettingsStore: vi.fn(() => 'all') // Mock lastFilter
 }))
 vi.mock('../hooks', () => ({
+  useFocusTrap: vi.fn(),
   useKeyboardShortcuts: vi.fn()
 }))
 
