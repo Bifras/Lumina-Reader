@@ -30,6 +30,9 @@ interface LibraryBooksContentProps {
   onDeleteBook: (id: string) => void
   onEditBook: (book: Book) => void
   onRate: (bookId: string, rating: number) => void
+  isSelectMode?: boolean
+  selectedBookIds?: Set<string>
+  onToggleSelectBook?: (id: string) => void
 }
 
 const LibraryBooksContent = memo(function LibraryBooksContent({
@@ -46,6 +49,9 @@ const LibraryBooksContent = memo(function LibraryBooksContent({
   onDeleteBook,
   onEditBook,
   onRate,
+  isSelectMode = false,
+  selectedBookIds = new Set(),
+  onToggleSelectBook = () => {},
 }: LibraryBooksContentProps) {
   const handleUploadKeyDown = (e: KeyboardEvent<HTMLLabelElement>) => {
     if (e.key !== 'Enter' && e.key !== ' ') return
@@ -69,7 +75,7 @@ const LibraryBooksContent = memo(function LibraryBooksContent({
   if (filteredLibrary.length === 0) {
     return (
       <div className={`empty-state ${isDragOver ? 'active' : ''}`}>
-        <div className="dropzone">
+        <div className={`dropzone ${isDragOver ? 'active' : ''}`}>
           <Upload size={48} strokeWidth={1} color={isDragOver ? "var(--accent-warm)" : "var(--accent)"} aria-hidden="true" />
           <h3>
             {libraryCount === 0
@@ -114,6 +120,9 @@ const LibraryBooksContent = memo(function LibraryBooksContent({
             onDelete={() => onDeleteBook(book.id)}
             onEdit={() => onEditBook(book)}
             onRate={(rating) => onRate(book.id, rating)}
+            isSelectMode={isSelectMode}
+            isSelected={selectedBookIds.has(book.id)}
+            onToggleSelect={() => onToggleSelectBook(book.id)}
             {...bookCardDisplayOptions}
           />
         ))}
@@ -140,6 +149,9 @@ const LibraryBooksContent = memo(function LibraryBooksContent({
                 onDelete={() => onDeleteBook(book.id)}
                 onEdit={() => onEditBook(book)}
                 onRate={(rating) => onRate(book.id, rating)}
+                isSelectMode={isSelectMode}
+                isSelected={selectedBookIds.has(book.id)}
+                onToggleSelect={() => onToggleSelectBook(book.id)}
                 {...bookCardDisplayOptions}
               />
             ))}

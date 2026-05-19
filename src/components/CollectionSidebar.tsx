@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Library, BookOpen, CheckCircle, Bookmark, Heart,
+  Library, BookOpen, CheckCircle, Bookmark, Heart, BarChart3,
   Folder, Plus, MoreVertical, Trash2, Edit2, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { useCollectionStore } from '../store/useCollectionStore'
@@ -36,6 +36,7 @@ const iconMap = {
   Bookmark,
   Heart,
   Folder,
+  BarChart3,
 }
 
 type ToastFn = (message: string, type?: 'info' | 'success' | 'warning' | 'error', title?: string, duration?: number) => void
@@ -622,6 +623,21 @@ export default function CollectionSidebar({ isCollapsed, onToggle, library, addT
                 bookCount={bookCounts[collection.id] || 0}
               />
             ))}
+            <CollectionItem
+              key="stats"
+              collection={{
+                id: 'stats',
+                name: 'Statistiche',
+                icon: 'BarChart3',
+                type: 'smart',
+                isDefault: true,
+                createdAt: 0
+              }}
+              isActive={activeCollectionId === 'stats'}
+              onSelect={handleSelectCollection}
+              isCollapsed={isCollapsed}
+              bookCount={0}
+            />
           </div>
         </div>
 

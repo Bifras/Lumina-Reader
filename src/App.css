@@ -5267,7 +5267,8 @@ a:focus:not(:focus-visible) {
    ============================================ */
 
 /* Settings Dropdown - Glassmorphism Panel */
-.library-view .library-settings-dropdown {
+.library-view .library-settings-dropdown,
+.library-view .library-tools-dropdown {
   position: absolute;
   top: calc(100% + 12px);
   right: 0;
@@ -5293,7 +5294,8 @@ a:focus:not(:focus-visible) {
 }
 
 /* Decorative top accent line */
-.library-view .library-settings-dropdown::before {
+.library-view .library-settings-dropdown::before,
+.library-view .library-tools-dropdown::before {
   content: '';
   position: absolute;
   top: 0;
@@ -5310,7 +5312,8 @@ a:focus:not(:focus-visible) {
 }
 
 /* Header - Editorial Style */
-.library-view .library-settings-header {
+.library-view .library-settings-header,
+.library-view .library-tools-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5319,7 +5322,8 @@ a:focus:not(:focus-visible) {
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.library-view .library-settings-title {
+.library-view .library-settings-title,
+.library-view .library-tools-title {
   font-family: var(--font-display);
   font-size: 1.1rem;
   font-weight: 600;
@@ -5335,7 +5339,8 @@ a:focus:not(:focus-visible) {
 
 /* Icon Buttons - Subtle & Refined */
 .library-view .library-settings-reset-btn,
-.library-view .library-settings-close-btn {
+.library-view .library-settings-close-btn,
+.library-view .library-tools-close-btn {
   width: 32px;
   height: 32px;
   display: inline-flex;
@@ -5356,7 +5361,8 @@ a:focus:not(:focus-visible) {
   transform: rotate(-15deg);
 }
 
-.library-view .library-settings-close-btn:hover {
+.library-view .library-settings-close-btn:hover,
+.library-view .library-tools-close-btn:hover {
   color: var(--text-main);
   border-color: var(--text-dim);
   background: var(--surface-hover);
@@ -5768,11 +5774,102 @@ a:focus:not(:focus-visible) {
 }
 
 /* ============================================
+   LIBRARY TOOLS MENU - Elegant Dropdown Items
+   ============================================ */
+.library-view .library-tools-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: transparent;
+}
+
+.library-view .library-tool-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+  color: var(--text-main);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.library-view .library-tool-item:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--accent-warm);
+  color: var(--accent-warm);
+  transform: translateY(-1px);
+}
+
+.library-view .library-tool-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--surface-hover);
+}
+
+.library-view .library-tool-item .tool-icon {
+  color: var(--text-soft);
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.library-view .library-tool-item:hover:not(:disabled) .tool-icon {
+  color: var(--accent-warm);
+}
+
+.library-view .library-tool-item .tool-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background-color: transparent;
+  flex-grow: 1;
+}
+
+.library-view .library-tool-item .tool-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  background-color: transparent;
+}
+
+.library-view .library-tool-item .tool-desc {
+  font-size: 0.72rem;
+  color: var(--text-soft);
+  font-weight: 400;
+  background-color: transparent;
+}
+
+/* Spinner asincrono per batch */
+.library-view .library-tool-item .tool-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--accent-warm);
+  border-radius: 50%;
+  animation: tool-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes tool-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
    DARK THEME VARIANTS
    ============================================ */
 
 [data-theme="dark"] .library-view .library-settings-dropdown,
-.library-view[data-library-theme="dark"] .library-settings-dropdown {
+.library-view[data-library-theme="dark"] .library-settings-dropdown,
+[data-theme="dark"] .library-view .library-tools-dropdown,
+.library-view[data-library-theme="dark"] .library-tools-dropdown {
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(30, 30, 30, 0.92);
   box-shadow:
@@ -5781,19 +5878,25 @@ a:focus:not(:focus-visible) {
 }
 
 [data-theme="dark"] .library-view .library-settings-header,
-.library-view[data-library-theme="dark"] .library-settings-header {
+.library-view[data-library-theme="dark"] .library-settings-header,
+[data-theme="dark"] .library-view .library-tools-header,
+.library-view[data-library-theme="dark"] .library-tools-header {
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="dark"] .library-view .library-settings-title,
-.library-view[data-library-theme="dark"] .library-settings-title {
+.library-view[data-library-theme="dark"] .library-settings-title,
+[data-theme="dark"] .library-view .library-tools-title,
+.library-view[data-library-theme="dark"] .library-tools-title {
   color: #f0f0f0;
 }
 
 [data-theme="dark"] .library-view .library-settings-reset-btn,
 [data-theme="dark"] .library-view .library-settings-close-btn,
+[data-theme="dark"] .library-view .library-tools-close-btn,
 .library-view[data-library-theme="dark"] .library-settings-reset-btn,
-.library-view[data-library-theme="dark"] .library-settings-close-btn {
+.library-view[data-library-theme="dark"] .library-settings-close-btn,
+.library-view[data-library-theme="dark"] .library-tools-close-btn {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.1);
   color: #a0a0a0;
@@ -7019,4 +7122,211 @@ a:focus:not(:focus-visible) {
   .edit-metadata__cover-col {
     width: 120px;
   }
+}
+
+/* ==========================================================================
+   Library Multiselect & Floating Action Bar Styles
+   ========================================================================== */
+
+.library-action-bar {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  left: calc(var(--sidebar-width) + 24px);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: var(--z-popup);
+  transition: left 0.3s var(--ease-out-expo);
+}
+
+.library-view--sidebar-collapsed .library-action-bar {
+  left: calc(var(--sidebar-collapsed-width) + 24px);
+}
+
+.action-bar-content {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  padding: 10px 24px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--bg-paper) 78%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 color-mix(in srgb, var(--bg-paper) 30%, white);
+  width: 100%;
+  max-width: 580px;
+  animation: slideUpSpring 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.1) forwards;
+}
+
+[data-theme="dark"] .action-bar-content {
+  background: color-mix(in srgb, var(--bg-cream) 12%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="sepia"] .action-bar-content {
+  background: color-mix(in srgb, var(--bg-paper) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-warm) 15%, transparent);
+}
+
+@keyframes slideUpSpring {
+  0% {
+    transform: translateY(30px) scale(0.96);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.selected-count {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.action-bar-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.22s var(--ease-out-expo);
+  border: 1px solid transparent;
+  outline: none;
+}
+
+.action-btn.text-button {
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.action-btn.text-button:hover {
+  color: var(--text-main);
+  background: var(--surface-hover);
+}
+
+.action-btn.destructive {
+  background: var(--accent-warm);
+  color: var(--bg-ivory);
+}
+
+.action-btn.destructive:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-warm) 85%, black);
+  transform: translateY(-1px);
+}
+
+.action-btn.destructive:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: var(--surface-disabled);
+  color: var(--text-disabled);
+}
+
+/* Checkbox Style for BookCard */
+.book-card-checkbox {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 30;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] .book-card-checkbox {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.book-card-checkbox:hover {
+  transform: scale(1.1);
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .book-card-checkbox:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.book-card-checkbox.selected {
+  background: var(--accent-warm);
+  border-color: var(--accent-warm);
+  color: var(--bg-ivory) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-warm) 45%, transparent);
+}
+
+.checkbox-check {
+  color: var(--bg-ivory);
+  stroke-width: 3.5px;
+  animation: popCheck 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popCheck {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+/* Selected Card Styling */
+.book-card.book-card--selected {
+  transform: translateY(-2px) !important;
+}
+
+.book-card.book-card--selected .book-cover-wrapper {
+  box-shadow: 0 0 0 2.5px var(--accent-warm), 0 8px 24px color-mix(in srgb, var(--accent-warm) 18%, rgba(0, 0, 0, 0.08)) !important;
+}
+
+/* Subtle cover overlay when selected */
+.book-card.book-card--selected .book-cover-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 2;
+  transition: background 0.2s ease;
+}
+
+[data-theme="dark"] .book-card.book-card--selected .book-cover-wrapper::after {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Specific adjustment for List View when selected */
+.book-card--list.book-card--selected {
+  background: var(--surface-hover) !important;
+  box-shadow: inset 3px 0 0 var(--accent-warm) !important;
+  border-radius: 4px;
 }

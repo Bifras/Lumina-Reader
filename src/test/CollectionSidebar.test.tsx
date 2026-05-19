@@ -7,10 +7,14 @@ vi.mock('../store/useCollectionStore')
 vi.mock('../store/useLibrarySettingsStore', () => ({
   useLibrarySettingsStore: vi.fn(() => 'all') // Mock lastFilter
 }))
-vi.mock('../hooks', () => ({
-  useFocusTrap: vi.fn(),
-  useKeyboardShortcuts: vi.fn()
-}))
+vi.mock('../hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../hooks')>()
+  return {
+    ...actual,
+    useFocusTrap: vi.fn(),
+    useKeyboardShortcuts: vi.fn()
+  }
+})
 
 describe('CollectionSidebar', () => {
   beforeEach(() => {

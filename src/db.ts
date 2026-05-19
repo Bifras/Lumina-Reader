@@ -398,6 +398,21 @@ class DatabaseService {
     await localforage.setItem('collections', updatedCollections)
     return updatedCollections
   }
+
+  async getSetting(key: string): Promise<any> {
+    if (this.useSqlite) {
+      return await window.electronAPI!.db!.getSetting(key)
+    }
+    return await localforage.getItem(`setting_${key}`)
+  }
+
+  async setSetting(key: string, value: any): Promise<void> {
+    if (this.useSqlite) {
+      await window.electronAPI!.db!.setSetting(key, value)
+      return
+    }
+    await localforage.setItem(`setting_${key}`, value)
+  }
 }
 
 export const dbService = new DatabaseService()
@@ -411,6 +426,8 @@ export const addBookToCollection = (bookId: string, collectionId: string) => dbS
 export const removeBookFromCollection = (bookId: string, collectionId: string) => dbService.removeBookFromCollection(bookId, collectionId)
 export const getBookCollections = (bookId: string) => dbService.getBookCollections(bookId)
 export const reorderCollections = (collectionIds: string[]) => dbService.reorderCollections(collectionIds)
+export const getSetting = (key: string) => dbService.getSetting(key)
+export const setSetting = (key: string, value: any) => dbService.setSetting(key, value)
 export const countBooksInCollection = async (collectionId: string, library: Book[]): Promise<number> => {
   if (collectionId === 'favorites') return library.filter(b => b.isFavorite).length
   if (['all', 'reading', 'finished', 'unread'].includes(collectionId)) {

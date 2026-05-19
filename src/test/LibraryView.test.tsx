@@ -55,6 +55,35 @@ vi.mock('../components/BookCard', () => ({
   ),
 }))
 
+
+// Mock CollectionSidebar
+vi.mock('../components/CollectionSidebar', () => ({
+  default: ({ isCollapsed, onToggle }: { isCollapsed: boolean; onToggle: () => void }) => (
+    <div data-testid="collection-sidebar" data-collapsed={isCollapsed}>
+      <button onClick={onToggle}>Toggle Sidebar</button>
+    </div>
+  ),
+}))
+
+// Mock BookCard
+vi.mock('../components/BookCard', () => ({
+  default: ({
+    book,
+    onClick,
+    onDelete,
+  }: {
+    book: Book
+    onClick: () => void
+    onDelete: () => void
+  }) => (
+    <div data-testid={`book-card-${book.id}`}>
+      <span>{book.title}</span>
+      <button onClick={onClick}>Read</button>
+      <button onClick={onDelete}>Delete</button>
+    </div>
+  ),
+}))
+
 // Mock useCollectionStore
 vi.mock('../store/useCollectionStore', () => ({
   useCollectionStore: vi.fn((selector?: (state: { activeCollectionId: string }) => unknown) => {
@@ -62,6 +91,35 @@ vi.mock('../store/useCollectionStore', () => ({
     return typeof selector === 'function' ? selector(state) : state
   }),
 }))
+
+vi.mock('../services/LibraryService', () => ({
+  LibraryService: {
+    updateBookMetadata: vi.fn().mockImplementation((id, updates) => {
+      return Promise.resolve([])
+    })
+  }
+}))
+
+vi.mock('../services/MetadataService', () => ({
+  MetadataService: {
+    searchMetadata: vi.fn().mockResolvedValue({
+      results: [
+        {
+          title: 'Test Book 3',
+          author: 'Author Three',
+          cover: 'new-cover3.jpg',
+          genre: 'Fantasy',
+          description: 'A test book description',
+          source: 'google'
+        }
+      ],
+      googleFailed: false,
+      openLibraryFailed: false,
+      itunesFailed: false
+    })
+  }
+}))
+
 
 describe('LibraryView Component', () => {
   // Mock window.confirm
@@ -72,9 +130,9 @@ describe('LibraryView Component', () => {
   const mockSetIsDragOver = vi.fn()
   const mockOnFileUpload = vi.fn()
   const mockOnLoadBook = vi.fn()
-  const mockOnDeleteBook = vi.fn()
+  const mockOnDeleteBook = vi.fn()
   const mockOnRegenerateCovers = vi.fn()
-  const mockOnSearchChange = vi.fn()
+  const mockOnSearchChange = vi.fn()
 
   // Sample book data
   const mockBooks: Book[] = [
@@ -113,9 +171,9 @@ describe('LibraryView Component', () => {
     setIsDragOver: mockSetIsDragOver,
     onFileUpload: mockOnFileUpload,
     onLoadBook: mockOnLoadBook,
-    onDeleteBook: mockOnDeleteBook,
+    onDeleteBook: mockOnDeleteBook,
     onRegenerateCovers: mockOnRegenerateCovers,
-    onSearchChange: mockOnSearchChange,
+    onSearchChange: mockOnSearchChange,
   }
 
   beforeEach(() => {
@@ -390,8 +448,8 @@ describe('LibraryView Component', () => {
       render(<LibraryView {...props} />)
 
       // Assert
-      const emptyState = document.querySelector('.empty-state')
-      expect(emptyState).toHaveClass('active')
+      const dropzone = document.querySelector('.dropzone')
+      expect(dropzone).toHaveClass('active')
     })
   })
 
@@ -526,6 +584,75 @@ describe('LibraryView Component', () => {
       expect(main).toBeInTheDocument()
     })
   })
+
+  describe('Batch Metadata Autofill', () => {
+    it('should identify and enrich eligible books in handleAutoFillMetadataBatch', async () => {
+      const { LibraryService } = await import('../services/LibraryService')
+      const { MetadataService } = await import('../services/MetadataService')
+
+      // Ripristiniamo i mock
+      vi.mocked(MetadataService.searchMetadata).mockClear()
+      vi.mocked(LibraryService.updateBookMetadata).mockClear()
+
+      // Libro 3 non ha la copertina ed è idoneo. Libro 1 e 2 hanno genere completo.
+      const customMockBooks: Book[] = [
+        {
+          id: '1',
+          title: 'Test Book 1',
+          author: 'Author One',
+          cover: 'cover1.jpg',
+          genre: 'Fantasy',
+          cfi: 'epubcfi(/6/4)',
+          progress: 50,
+          addedAt: Date.now() - 100000,
+        },
+        {
+          id: '2',
+          title: 'Test Book 2',
+          author: 'Author Two',
+          cover: 'cover2.jpg',
+          genre: 'Fiction',
+          cfi: 'epubcfi(/6/6)',
+          progress: 0,
+          addedAt: Date.now() - 200000,
+        },
+        {
+          id: '3',
+          title: 'Test Book 3',
+          author: 'Author Three',
+          cfi: 'epubcfi(/6/8)',
+          progress: 100,
+          addedAt: Date.now() - 300000,
+        },
+      ]
+
+      const props = {
+        ...defaultProps,
+        library: customMockBooks,
+        filteredLibrary: customMockBooks,
+        addToast: vi.fn()
+      }
+
+      render(<LibraryView {...props} />)
+
+      // Clicchiamo sul pulsante di autocompilazione batch
+      // Per fare questo apriamo prima il menu strumenti
+      const toolsButton = screen.getByLabelText(/Apri strumenti libreria/i)
+      fireEvent.click(toolsButton)
+
+      // Ora clicchiamo su "Autocompila Metadati"
+      const autofillButton = screen.getByText('Autocompila Metadati')
+      fireEvent.click(autofillButton)
+
+      await waitFor(() => {
+        // Dovrebbe aver cercato i metadati per il libro 3 (l'unico senza copertina)
+        expect(MetadataService.searchMetadata).toHaveBeenCalledWith('Test Book 3', 'Author Three')
+        expect(LibraryService.updateBookMetadata).toHaveBeenCalledWith('3', {
+          cover: 'new-cover3.jpg',
+          genre: 'Fantasy'
+        })
+        expect(props.addToast).toHaveBeenCalledWith('Autocompilazione batch completata! Aggiornati 1 libri.', 'success')
+      })
+    })
+  })
 })
-
-

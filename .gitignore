@@ -86,3 +86,8 @@ release/
 
 # ── File temporanei Claude ───────────────────────
 tmpclaude-*
+
+# ── Local test interaction scripts ────────────────
+test-detailed-interactions.js
+test-exhaustive-interactions.js
+

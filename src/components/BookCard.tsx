@@ -1,6 +1,6 @@
 import { memo, MouseEventHandler, useState, useMemo, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Trash2, Edit2, User, Folder, Calendar, Tag } from 'lucide-react'
+import { Trash2, Edit2, User, Folder, Calendar, Tag, Check } from 'lucide-react'
 import StarRating from './StarRating'
 import type { Book } from '../types'
 
@@ -19,6 +19,9 @@ interface BookCardProps {
   showRating?: boolean
   interactiveRating?: boolean
   cardSize?: number
+  isSelectMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: () => void
 }
 
 type CoverPresentation = 'fill' | 'fit'
@@ -40,7 +43,10 @@ const BookCard = memo(function BookCard({
   showGenre = true,
   showRating = true,
   interactiveRating = true,
-  cardSize = 180
+  cardSize = 180,
+  isSelectMode = false,
+  isSelected = false,
+  onToggleSelect
 }: BookCardProps) {
   const [coverError, setCoverError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -158,20 +164,31 @@ const BookCard = memo(function BookCard({
     return classes.join(' ')
   }, [coverPresentation, viewMode])
 
-  const renderNoCover = useCallback(() => (
-    <div className={noCoverClassName} aria-hidden="true">
-      <div className="no-cover__content">
-        <div className="no-cover__text">
-          <span className="no-cover__title" title={book.title}>{book.title}</span>
-          {book.author && (
-            <span className="no-cover__author" title={book.author}>
-              {book.author}
-            </span>
+  const renderNoCover = useCallback(() => {
+    const initials = book.title ? book.title.trim().charAt(0).toUpperCase() : '?';
+    const isGridOrCompact = viewMode === 'grid' || viewMode === 'compact';
+
+    return (
+      <div className={noCoverClassName} aria-hidden="true">
+        <div className="no-cover__content">
+          {isGridOrCompact ? (
+            <div className="no-cover__monogram">
+              <span className="no-cover__initial">{initials}</span>
+            </div>
+          ) : (
+            <div className="no-cover__text">
+              <span className="no-cover__title" title={book.title}>{book.title}</span>
+              {book.author && (
+                <span className="no-cover__author" title={book.author}>
+                  {book.author}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
-    </div>
-  ), [book.author, book.title, noCoverClassName])
+    )
+  }, [book.author, book.title, noCoverClassName, viewMode])
 
   const renderCoverArt = useCallback(() => {
     const hasCover = book.cover && book.cover.trim() !== '' && book.cover !== 'null';
@@ -192,24 +209,37 @@ const BookCard = memo(function BookCard({
     )
   }, [book.cover, book.title, coverError, coverMediaClassName, handleCoverError, handleCoverLoad, renderNoCover])
 
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    if (isSelectMode) {
+      e.stopPropagation()
+      onToggleSelect?.()
+    } else {
+      onClick()
+    }
+  }, [isSelectMode, onToggleSelect, onClick])
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return
 
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      onClick()
+      if (isSelectMode) {
+        onToggleSelect?.()
+      } else {
+        onClick()
+      }
     }
-  }, [onClick])
+  }, [isSelectMode, onToggleSelect, onClick])
 
   if (viewMode === 'list') {
     return (
       <motion.div
-        className="book-card book-card--list"
+        className={`book-card book-card--list ${isSelected ? 'book-card--selected' : ''}`}
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.2 }}
         whileHover={{ backgroundColor: 'var(--surface-hover)' }}
-        onClick={onClick}
+        onClick={handleCardClick}
         onKeyDown={handleKeyDown}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -235,10 +265,22 @@ const BookCard = memo(function BookCard({
               />
             </div>
           )}
+          {(isSelectMode || isHovered) && (
+            <div
+              className={`book-card-checkbox ${isSelected ? 'selected' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleSelect?.()
+              }}
+              title={isSelected ? "Deseleziona libro" : "Seleziona libro"}
+            >
+              {isSelected && <Check size={12} className="checkbox-check" />}
+            </div>
+          )}
         </div>
 
         <div className="book-meta book-meta--list">
-          <h4>{book.title}</h4>
+          <h4 title={book.title}>{book.title}</h4>
           <div className="book-meta-row">
             {showAuthor && book.author && (
               <span className="meta-item">
@@ -320,12 +362,12 @@ const BookCard = memo(function BookCard({
 
   return (
     <motion.div
-      className={`book-card ${viewMode === 'compact' ? 'book-card--compact' : ''}`}
+      className={`book-card ${viewMode === 'compact' ? 'book-card--compact' : ''} ${isSelected ? 'book-card--selected' : ''}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      whileHover={{ y: -4 }}
-      onClick={onClick}
+      whileHover={isSelectMode ? { y: 0 } : { y: -4 }}
+      onClick={handleCardClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -341,6 +383,18 @@ const BookCard = memo(function BookCard({
           ...(book.cover && !coverError ? { '--cover-bg': `url("${book.cover}")` } : {}) as React.CSSProperties
         }}
       >
+        {(isSelectMode || isHovered) && (
+          <div
+            className={`book-card-checkbox ${isSelected ? 'selected' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleSelect?.()
+            }}
+            title={isSelected ? "Deseleziona libro" : "Seleziona libro"}
+          >
+            {isSelected && <Check size={12} className="checkbox-check" />}
+          </div>
+        )}
         {renderCoverArt()}
 
         <div className="card-actions-hitbox" style={{ position: 'absolute', top: 0, right: 0, padding: '8px', display: 'flex', gap: '4px', zIndex: 25 }} onClick={(e) => e.stopPropagation()}>

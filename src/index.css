@@ -108,15 +108,15 @@ body {
 }
 
 /* Prevent white flash on initial load - theme-based body backgrounds */
-body[data-theme="dark"] {
+[data-theme="dark"] body {
   background-color: #121212 !important;
 }
 
-body[data-theme="sepia"] {
+[data-theme="sepia"] body {
   background-color: #f4ecd8 !important;
 }
 
-body[data-theme="light"] {
+[data-theme="light"] body {
   background-color: #faf9f6 !important;
 }
 
@@ -190,12 +190,975 @@ button {
   margin-top: 4px;
 }
 
-.meta-tag.custom-tag {
-  background: var(--surface-2);
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.75rem;
+/* Elegant and uniform metadata tag system */
+.meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+  line-height: 1.2;
 }
+
+/* Specific styling and colors for each tag type */
+.meta-tag.genre-tag {
+  background: color-mix(in srgb, var(--accent-warm) 8%, var(--bg-ivory));
+  color: var(--accent-warm);
+  border: 1px solid color-mix(in srgb, var(--accent-warm) 22%, transparent);
+}
+
+.meta-tag.collection-tag {
+  background: color-mix(in srgb, var(--text-main) 5%, var(--bg-ivory));
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
+}
+
+.meta-tag.custom-tag {
+  background: color-mix(in srgb, var(--text-main) 6%, var(--bg-ivory));
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Monogram styling for book covers without artwork */
+.no-cover__monogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.no-cover__initial {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  font-weight: 700;
+  opacity: 0.85;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  user-select: none;
+}
+
+/* ===================================================================
+   READING ANALYTICS & DASHBOARD STYLES (Statistiche View Premium)
+   =================================================================== */
+
+.stats-container {
+  padding: var(--space-xl);
+  max-height: calc(100vh - 40px); /* window controls offset */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  font-family: var(--font-ui);
+  scroll-behavior: smooth;
+  width: 100%;
+
+  /* Sistema di stili editoriali "Terra e Inchiostro" */
+  --stats-accent: #8b1c34; /* Cremisi / Vino */
+  --stats-accent-hover: #a12b45;
+  --stats-accent-rgb: 139, 28, 52;
+  --stats-secondary: #2f5b32; /* Verde oliva antico */
+  --stats-secondary-rgb: 47, 91, 50;
+  --stats-bg-grid: rgba(139, 28, 52, 0.03);
+  --stats-card-border: 1px solid rgba(0, 0, 0, 0.08);
+  --stats-card-bg: rgba(255, 255, 255, 0.65);
+  --stats-metric-border: rgba(0, 0, 0, 0.08);
+  --stats-grid-line: rgba(0, 0, 0, 0.04);
+
+  /* Griglia millimetrata filigranata di sfondo */
+  background-image: radial-gradient(var(--stats-grid-line) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+[data-theme="sepia"] .stats-container {
+  --stats-accent: #a04a1e; /* Terracotta / Ruggine */
+  --stats-accent-hover: #c05a2b;
+  --stats-accent-rgb: 160, 74, 30;
+  --stats-secondary: #3b5c3e; /* Verde bosco desaturato */
+  --stats-secondary-rgb: 59, 92, 62;
+  --stats-bg-grid: rgba(160, 74, 30, 0.03);
+  --stats-card-border: 1px solid rgba(160, 74, 30, 0.15);
+  --stats-card-bg: rgba(244, 236, 216, 0.55);
+  --stats-metric-border: rgba(160, 74, 30, 0.15);
+  --stats-grid-line: rgba(160, 74, 30, 0.08);
+}
+
+[data-theme="dark"] .stats-container {
+  --stats-accent: #d97706; /* Bronzo caldo / Rame */
+  --stats-accent-hover: #f59e0b;
+  --stats-accent-rgb: 217, 119, 6;
+  --stats-secondary: #10b981; /* Verde bosco smeraldo */
+  --stats-secondary-rgb: 16, 185, 129;
+  --stats-bg-grid: rgba(217, 119, 6, 0.02);
+  --stats-card-border: 1px solid rgba(255, 255, 255, 0.06);
+  --stats-card-bg: rgba(18, 18, 18, 0.55);
+  --stats-metric-border: rgba(255, 255, 255, 0.08);
+  --stats-grid-line: rgba(255, 255, 255, 0.03);
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px double var(--border-subtle);
+  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-xs);
+  background-color: transparent;
+}
+
+.stats-title {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 500;
+  font-style: italic; /* Elegante corsivo monumentale */
+  color: var(--text-main);
+  background-color: transparent;
+}
+
+.stats-subtitle {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-soft);
+  background-color: transparent;
+}
+
+/* La "Tavola delle Metriche" (Monolithic Ribbon) */
+.stats-metric-ribbon {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--stats-card-bg);
+  border: var(--stats-card-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg) 0;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  transition: var(--transition-theme);
+}
+
+.metric-ribbon-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-right: 1px solid var(--stats-metric-border);
+  padding: 0 var(--space-md);
+  background-color: transparent;
+  transition: transform 0.2s var(--ease-out-expo);
+}
+
+.metric-ribbon-col:hover {
+  transform: translateY(-2px);
+}
+
+.metric-ribbon-col:last-child {
+  border-right: none;
+}
+
+.metric-ribbon-num {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 600;
+  font-style: italic; /* Corsivo editoriale sui dati */
+  color: var(--text-main);
+  line-height: 1;
+  margin-bottom: var(--space-xs);
+  background-color: transparent;
+}
+
+.metric-ribbon-num span.metric-unit {
+  font-size: 1.1rem;
+  font-weight: 400;
+  font-style: normal;
+  color: var(--text-soft);
+  margin-left: 2px;
+  background-color: transparent;
+}
+
+.metric-ribbon-label {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em; /* Maiuscole distanziate */
+  color: var(--text-dim);
+  background-color: transparent;
+}
+
+.metric-ribbon-sub {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--text-soft);
+  margin-top: 4px;
+  max-width: 180px;
+  background-color: transparent;
+}
+
+/* Animazione fiamma streak */
+.flame-label-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: transparent;
+}
+
+.flame-icon-mini {
+  color: var(--stats-accent);
+  animation: pulse-scale 1.8s infinite ease-in-out;
+  background-color: transparent;
+}
+
+@keyframes pulse-scale {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 1px rgba(var(--stats-accent-rgb), 0.3));
+  }
+  50% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 4px rgba(var(--stats-accent-rgb), 0.6));
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 1px rgba(var(--stats-accent-rgb), 0.3));
+  }
+}
+
+/* Griglia Editoriale Asimmetrica */
+.stats-editorial-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr; /* Asimmetria 60% - 40% */
+  gap: var(--space-xl);
+  width: 100%;
+  background-color: transparent;
+}
+
+@media (max-width: 900px) {
+  .stats-editorial-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Pannelli Bento Editoriali */
+.editorial-panel {
+  background: var(--stats-card-bg);
+  border: var(--stats-card-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  transition: transform 0.24s var(--ease-out-expo), box-shadow 0.24s var(--ease-out-expo), background-color 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.editorial-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.editorial-panel__header {
+  border-bottom: 1px solid var(--stats-metric-border);
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: transparent;
+}
+
+.editorial-panel__title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--text-main);
+  background-color: transparent;
+}
+
+.editorial-panel__subtitle {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  font-style: italic;
+  background-color: transparent;
+}
+
+.panel-header-icon {
+  color: var(--text-soft);
+  background-color: transparent;
+}
+
+.editorial-badge {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--stats-accent) 8%, transparent);
+  color: var(--stats-accent);
+  border: 1px solid color-mix(in srgb, var(--stats-accent) 20%, transparent);
+}
+
+/* L'Astrolabio dell'Obiettivo (Daily Goal Quadrant) */
+.goal-astrolabe-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+  background-color: transparent;
+}
+
+.astrolabe-container {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  margin: 0 auto;
+}
+
+.astrolabe-svg {
+  background-color: transparent;
+}
+
+.astrolabe-outer-ring {
+  stroke: var(--stats-grid-line);
+  stroke-width: 1;
+  fill: transparent;
+}
+
+.astrolabe-ticks-ring {
+  stroke: var(--border-subtle);
+  stroke-width: 2.5;
+  stroke-dasharray: 2 6; /* Cerchio a tacche astronomiche */
+  fill: transparent;
+}
+
+.astrolabe-progress-ring {
+  stroke: var(--stats-accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  fill: transparent;
+}
+
+.astrolabe-progress-ring.completed {
+  stroke: var(--stats-secondary);
+}
+
+.astrolabe-needle {
+  stroke: var(--stats-accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transform-origin: 60px 60px;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.astrolabe-needle.completed {
+  stroke: var(--stats-secondary);
+}
+
+.astrolabe-center-pivot {
+  fill: var(--text-main);
+  stroke: var(--bg-cream);
+  stroke-width: 2;
+}
+
+.astrolabe-label {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  pointer-events: none;
+}
+
+.astrolabe-num {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--text-main);
+  line-height: 1;
+  background-color: transparent;
+}
+
+.astrolabe-sub {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
+  margin-top: 2px;
+  background-color: transparent;
+}
+
+/* Slider d'Ottone (Brass Range Slider) */
+.brass-slider-wrapper {
+  width: 100%;
+  background-color: transparent;
+  margin-top: var(--space-md);
+}
+
+.brass-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+  background-color: transparent;
+}
+
+.brass-slider-title {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  background-color: transparent;
+}
+
+.brass-slider-value {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--stats-accent);
+  background-color: transparent;
+}
+
+.brass-slider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px; /* Fine single-line track */
+  background: var(--border-subtle);
+  outline: none;
+  margin: var(--space-sm) 0;
+  background-color: transparent;
+}
+
+.brass-slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--stats-accent); /* Cerchio cavo stile ottone */
+  background: var(--bg-cream);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, background-color 0.2s;
+}
+
+body[data-theme="dark"] .brass-slider-input::-webkit-slider-thumb {
+  background: #121212;
+}
+
+.brass-slider-input::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: var(--stats-accent);
+}
+
+.brass-slider-hints {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--text-soft);
+  background-color: transparent;
+  margin-top: 2px;
+}
+
+/* Grafico Attività Settimanale "A Disegno Tecnico" */
+.weekly-chart-canvas {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 190px;
+  padding: var(--space-xl) var(--space-sm) 0 var(--space-sm);
+  position: relative;
+  width: 100%;
+  /* Texture a linee orizzontali stile taccuino */
+  background-image: repeating-linear-gradient(to top, var(--stats-grid-line) 0px, var(--stats-grid-line) 1px, transparent 1px, transparent 36px);
+  background-color: transparent;
+  border-bottom: 1px solid var(--stats-metric-border);
+  margin-bottom: var(--space-sm);
+}
+
+.weekly-chart-plot-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 11%;
+  height: 100%;
+  justify-content: flex-end;
+  position: relative;
+  background-color: transparent;
+}
+
+.weekly-chart-line-stem {
+  width: 2px;
+  background: var(--border-subtle);
+  position: relative;
+  transition: height 0.6s var(--ease-out-expo), background-color 0.2s, opacity 0.2s;
+  display: flex;
+  justify-content: center;
+  opacity: 0.6;
+}
+
+.weekly-chart-line-stem:hover {
+  opacity: 1;
+  background: var(--stats-accent);
+}
+
+.weekly-chart-line-stem.today-stem {
+  background: var(--stats-accent);
+  opacity: 0.95;
+  width: 2px;
+}
+
+.weekly-chart-line-stem.goal-reached {
+  background: var(--stats-secondary);
+  opacity: 0.85;
+}
+
+.weekly-chart-plot-node {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-main);
+  border: 2px solid var(--bg-cream);
+  position: absolute;
+  top: -4px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+body[data-theme="dark"] .weekly-chart-plot-node {
+  border-color: #121212;
+}
+
+.weekly-chart-line-stem:hover .weekly-chart-plot-node {
+  transform: scale(1.3);
+  background: var(--stats-accent);
+}
+
+.weekly-chart-line-stem.today-stem .weekly-chart-plot-node {
+  background: var(--stats-accent);
+  box-shadow: 0 0 6px rgba(var(--stats-accent-rgb), 0.5);
+}
+
+.weekly-chart-line-stem.goal-reached .weekly-chart-plot-node {
+  background: var(--stats-secondary);
+}
+
+.weekly-chart-plot-label {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-top: var(--space-sm);
+  background-color: transparent;
+}
+
+.weekly-chart-plot-label.is-today {
+  color: var(--stats-accent);
+  font-weight: 700;
+}
+
+/* Tooltip filiforme sopra i nodi */
+.bar-tooltip {
+  position: absolute;
+  top: -28px;
+  background: var(--stats-card-bg);
+  border: var(--stats-card-border);
+  color: var(--text-main);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px) scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+.weekly-chart-line-stem:hover .bar-tooltip {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Generi Letterari (Hairline Circle & Typographic Table) */
+.genres-panel-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+  min-height: 240px;
+  justify-content: center;
+  background-color: transparent;
+}
+
+.genres-doughnut-container {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  margin: 0 auto;
+}
+
+.genres-doughnut-svg {
+  background-color: transparent;
+}
+
+.genres-doughnut-bg-ring {
+  stroke: var(--stats-grid-line);
+  stroke-width: 3;
+  fill: transparent;
+}
+
+.genres-doughnut-decorative-outer {
+  stroke: var(--border-subtle);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 4;
+  fill: transparent;
+}
+
+.genres-doughnut-slice-thin {
+  stroke-width: 4; /* Fila sottile */
+  transition: stroke-dashoffset 0.6s var(--ease-out-expo);
+  cursor: pointer;
+  fill: transparent;
+}
+
+.genres-doughnut-center-info {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  pointer-events: none;
+}
+
+.genres-doughnut-count {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-main);
+  line-height: 1;
+  background-color: transparent;
+}
+
+.genres-doughnut-label {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  margin-top: 2px;
+  background-color: transparent;
+}
+
+.genres-table {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: var(--space-sm);
+  background-color: transparent;
+}
+
+.genres-table-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.825rem;
+  border-bottom: 1px dashed var(--stats-grid-line);
+  padding-bottom: 6px;
+  background-color: transparent;
+}
+
+.genres-table-row:last-child {
+  border-bottom: none;
+}
+
+.genres-table-label-grp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 75%;
+  background-color: transparent;
+}
+
+.genres-table-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.genres-table-name {
+  font-family: var(--font-body);
+  font-style: italic; /* Etichetta letteraria */
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-color: transparent;
+}
+
+.genres-table-percentage {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-style: italic;
+  color: var(--stats-accent);
+  background-color: transparent;
+}
+
+.genres-table-more {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.75rem;
+  color: var(--text-soft);
+  text-align: center;
+  padding-top: var(--space-xs);
+  width: 100%;
+  background-color: transparent;
+}
+
+/* Attività Recente (Catalogo Stile Indice Bibliografico) */
+.catalog-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  background-color: transparent;
+  width: 100%;
+}
+
+.catalog-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--stats-grid-line);
+  background-color: transparent;
+  transition: padding-left 0.2s var(--ease-out-expo);
+}
+
+.catalog-item:hover {
+  padding-left: 4px;
+}
+
+.catalog-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.catalog-cover-box {
+  width: 38px;
+  height: 54px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+
+.catalog-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.catalog-cover-fallback {
+  width: 100%;
+  height: 100%;
+  background: var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-soft);
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.catalog-details {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background-color: transparent;
+}
+
+.catalog-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-color: transparent;
+}
+
+.catalog-author {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.75rem;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-color: transparent;
+}
+
+.catalog-progress-grp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  background-color: transparent;
+}
+
+.catalog-progress-bar-bg {
+  width: 70px;
+  height: 2px; /* Fine-line progress */
+  background: var(--border-subtle);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.catalog-progress-bar-fill {
+  height: 100%;
+  background: var(--stats-accent);
+  border-radius: var(--radius-full);
+}
+
+.catalog-progress-text {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  background-color: transparent;
+}
+
+.catalog-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  background-color: transparent;
+}
+
+.catalog-time-val {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--text-main);
+  background-color: transparent;
+}
+
+.catalog-time-lbl {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: transparent;
+}
+
+/* Loading & Empty States */
+.stats-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  gap: var(--space-md);
+  color: var(--text-soft);
+  font-family: var(--font-ui);
+}
+
+.stats-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--stats-accent);
+  border-radius: 50%;
+  animation: stats-spin 0.8s linear infinite;
+}
+
+@keyframes stats-spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-stats-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+  text-align: center;
+  color: var(--text-soft);
+  gap: var(--space-sm);
+  background-color: transparent;
+}
+
+.empty-stats-placeholder p {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  max-width: 240px;
+  background-color: transparent;
+}
+
+/* Scrollbar per statistiche */
+.stats-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.stats-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.stats-container::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 10px;
+}
+
+
 

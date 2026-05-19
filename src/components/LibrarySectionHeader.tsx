@@ -1,7 +1,8 @@
 import { memo, type ChangeEvent, type KeyboardEvent, type RefObject, useState, useRef } from 'react'
-import { BookOpen, ImageIcon, Plus, Search, SlidersHorizontal, Filter } from 'lucide-react'
+import { BookOpen, Plus, Search, SlidersHorizontal, Filter, Sparkles } from 'lucide-react'
 import SettingsMenu from './LibrarySettingsMenu'
 import AdvancedFiltersMenu from './AdvancedFiltersMenu'
+import LibraryToolsMenu from './LibraryToolsMenu'
 import { useLibraryStore } from '../store/useLibraryStore'
 import type { Book } from '../types'
 
@@ -20,6 +21,9 @@ interface LibrarySectionHeaderProps {
   onRegenerateCovers?: () => void
   onFileInputChange: (e: ChangeEvent<HTMLInputElement>) => void
   onResumeRead: (book: Book) => void
+  onAutoFillBatch: () => void
+  isBatchProcessing: boolean
+  onEnterSelectMode: () => void
 }
 
 const LibrarySectionHeader = memo(function LibrarySectionHeader({
@@ -37,17 +41,26 @@ const LibrarySectionHeader = memo(function LibrarySectionHeader({
   onRegenerateCovers,
   onFileInputChange,
   onResumeRead,
+  onAutoFillBatch,
+  isBatchProcessing,
+  onEnterSelectMode,
 }: LibrarySectionHeaderProps) {
   const [showFilters, setShowFilters] = useState(false)
+  const [showTools, setShowTools] = useState(false)
   const filtersRef = useRef<HTMLDivElement>(null)
+  const toolsRef = useRef<HTMLDivElement>(null)
+  const toolsButtonRef = useRef<HTMLButtonElement>(null)
   const advancedFilters = useLibraryStore(state => state.advancedFilters)
   const hasActiveFilters = advancedFilters.genre !== undefined || advancedFilters.minRating !== undefined || advancedFilters.isFavorite !== undefined
+
   const activeFilterCount = [
     advancedFilters.genre,
     advancedFilters.minRating,
     advancedFilters.isFavorite
   ].filter(value => value !== undefined && value !== '').length
+  
   const isLibraryEmpty = libraryCount === 0
+
   const handleUploadKeyDown = (e: KeyboardEvent<HTMLLabelElement>) => {
     if (e.key !== 'Enter' && e.key !== ' ') return
     e.preventDefault()
@@ -138,16 +151,29 @@ const LibrarySectionHeader = memo(function LibrarySectionHeader({
           </div>
 
           <div className="library-actions">
-            {showRegenerateButton && onRegenerateCovers && (
+            <div className="settings-wrapper" ref={toolsRef}>
               <button
-                onClick={onRegenerateCovers}
-                className="icon-button"
-                title="Ripara Copertine"
-                aria-label="Ripara copertine mancanti"
+                ref={toolsButtonRef}
+                className={`icon-button settings-toggle ${showTools || isBatchProcessing ? 'active' : ''}`}
+                onClick={() => setShowTools(!showTools)}
+                title="Strumenti Libreria"
+                aria-label="Apri strumenti libreria"
+                aria-expanded={showTools}
+                aria-haspopup="dialog"
               >
-                <ImageIcon size={20} aria-hidden="true" />
+                <Sparkles size={20} aria-hidden="true" />
               </button>
-            )}
+              <LibraryToolsMenu
+                isOpen={showTools}
+                onClose={() => setShowTools(false)}
+                toolsRef={toolsRef}
+                onRegenerateCovers={onRegenerateCovers}
+                onAutoFillBatch={onAutoFillBatch}
+                showRegenerateButton={showRegenerateButton}
+                isBatchProcessing={isBatchProcessing}
+                onEnterSelectMode={onEnterSelectMode}
+              />
+            </div>
             <label
               htmlFor="lib-upload"
               className="primary-button-small prominent-action"
@@ -175,7 +201,3 @@ const LibrarySectionHeader = memo(function LibrarySectionHeader({
 })
 
 export default LibrarySectionHeader
-
-
-
-

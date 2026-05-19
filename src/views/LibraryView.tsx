@@ -1,5 +1,6 @@
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
+import { CheckSquare, Square, Trash2, X } from 'lucide-react'
 import LibraryBooksContent, { type LibraryBookCardDisplayOptions } from '../components/LibraryBooksContent'
 import CollectionSidebar from '../components/CollectionSidebar'
 import LibrarySectionHeader from '../components/LibrarySectionHeader'
@@ -14,6 +15,8 @@ import type { Book, TOCEntry } from '../types'
 import { getLastReadBook, sortAndGroupBooks } from './libraryViewUtils'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EditMetadataModal from '../components/EditMetadataModal'
+import StatsView from './StatsView'
+import { MetadataService } from '../services/MetadataService'
 
 interface LibraryViewProps {
   library: Book[]
@@ -23,6 +26,7 @@ interface LibraryViewProps {
   onFileUpload: (file: File | null) => void
   onLoadBook: (file: null, cfi?: string, id?: string) => void
   onDeleteBook: (id: string) => void
+  onDeleteBooks?: (ids: string[]) => void
   onUpdateLibrary?: (library: Book[]) => void
   onRegenerateCovers?: () => void
   onSearchChange?: (query: string) => void
@@ -38,6 +42,7 @@ const LibraryView = memo(function LibraryView({
   onFileUpload,
   onLoadBook,
   onDeleteBook,
+  onDeleteBooks,
   onUpdateLibrary,
   onRegenerateCovers,
   onSearchChange,
@@ -46,6 +51,7 @@ const LibraryView = memo(function LibraryView({
 }: LibraryViewProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false)
   const mainRef = useRef<HTMLDivElement>(null)
   const settingsRef = useRef<HTMLDivElement>(null)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
@@ -69,6 +75,11 @@ const LibraryView = memo(function LibraryView({
     setLastSearch
   } = useLibrarySettingsStore()
   const activeCollectionId = useCollectionStore(state => state.activeCollectionId)
+
+  // Multiselect State
+  const [isSelectMode, setIsSelectMode] = useState(false)
+  const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set())
+  const [showConfirmDeleteBatch, setShowConfirmDeleteBatch] = useState(false)
 
   // Library theme is now handled centrally by App.tsx and useLibrarySettingsStore
   // The data-library-theme attribute is applied to documentElement for global CSS cascading
@@ -160,6 +171,65 @@ const LibraryView = memo(function LibraryView({
     }
   }, [bookToDelete, onDeleteBook])
 
+  // Multiselect Actions
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedBookIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  const handleToggleSelectWithMode = useCallback((id: string) => {
+    setIsSelectMode(true)
+    setSelectedBookIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  const isAllFilteredSelected = useMemo(() => {
+    if (filteredLibrary.length === 0) return false
+    return filteredLibrary.every(b => selectedBookIds.has(b.id))
+  }, [filteredLibrary, selectedBookIds])
+
+  const handleSelectAll = useCallback(() => {
+    if (isAllFilteredSelected) {
+      setSelectedBookIds(new Set())
+    } else {
+      setSelectedBookIds(new Set(filteredLibrary.map(b => b.id)))
+    }
+  }, [filteredLibrary, isAllFilteredSelected])
+
+  const handleCancelSelection = useCallback(() => {
+    setSelectedBookIds(new Set())
+    setIsSelectMode(false)
+  }, [])
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedBookIds.size > 0) {
+      setShowConfirmDeleteBatch(true)
+    }
+  }, [selectedBookIds])
+
+  const executeDeleteBatch = useCallback(() => {
+    if (onDeleteBooks && selectedBookIds.size > 0) {
+      onDeleteBooks(Array.from(selectedBookIds))
+      setSelectedBookIds(new Set())
+      setIsSelectMode(false)
+    }
+    setShowConfirmDeleteBatch(false)
+  }, [onDeleteBooks, selectedBookIds])
+
   const handleEditBook = useCallback((book: Book) => {
     setBookToEdit(book)
   }, [])
@@ -214,6 +284,86 @@ const LibraryView = memo(function LibraryView({
     useLibraryStore.getState().setLibrary(newLibrary)
     onUpdateLibrary?.(newLibrary)
   }, [onUpdateLibrary])
+
+  const handleAutoFillMetadataBatch = useCallback(async () => {
+    const eligibleBooks = library.filter(
+      b => !b.cover || !b.genre || !b.author || b.author === 'Autore sconosciuto'
+    )
+
+    if (eligibleBooks.length === 0) {
+      if (addToast) {
+        addToast('Tutti i libri hanno metadati completi', 'info')
+      }
+      return
+    }
+
+    setIsBatchProcessing(true)
+    if (addToast) {
+      addToast('Ricerca metadati in corso...', 'info')
+    }
+
+    try {
+      let updatedCount = 0
+      for (let i = 0; i < eligibleBooks.length; i++) {
+        const book = eligibleBooks[i]
+        
+        try {
+          const searchResult = await MetadataService.searchMetadata(
+            book.title,
+            book.author !== 'Autore sconosciuto' ? book.author : undefined
+          )
+
+          if (searchResult.results.length > 0) {
+            const match = searchResult.results[0]
+            const updates: Partial<Book> = {}
+
+            if (!book.cover && match.cover) {
+              updates.cover = match.cover
+            }
+            if (!book.genre && match.genre) {
+              updates.genre = match.genre
+            }
+            if ((!book.author || book.author === 'Autore sconosciuto') && match.author && match.author !== 'Autore sconosciuto') {
+              updates.author = match.author
+            }
+
+            if (Object.keys(updates).length > 0) {
+              const updatedLibrary = await LibraryService.updateBookMetadata(book.id, updates)
+              useLibraryStore.getState().setLibrary(updatedLibrary)
+              onUpdateLibrary?.(updatedLibrary)
+              updatedCount++
+            }
+          }
+        } catch (error) {
+          console.error(`Errore durante l'autocompilazione di "${book.title}":`, error)
+        }
+
+        if (addToast) {
+          addToast(`Scansione: ${i + 1}/${eligibleBooks.length} libri...`, 'info')
+        }
+
+        // Delay artificiale anti-429
+        if (i < eligibleBooks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 600))
+        }
+      }
+
+      if (addToast) {
+        if (updatedCount > 0) {
+          addToast(`Autocompilazione batch completata! Aggiornati ${updatedCount} libri.`, 'success')
+        } else {
+          addToast('Autocompilazione batch completata! Nessun nuovo metadato trovato.', 'info')
+        }
+      }
+    } catch (error) {
+      console.error('Errore nell\'autocompilazione batch:', error)
+      if (addToast) {
+        addToast('Errore durante l\'autocompilazione batch', 'error')
+      }
+    } finally {
+      setIsBatchProcessing(false)
+    }
+  }, [library, onUpdateLibrary, addToast])
 
   // Grid style based on view mode and card size
   const gridStyle = useMemo(() => {
@@ -285,37 +435,49 @@ const LibraryView = memo(function LibraryView({
         className={`library-main ${isSidebarCollapsed ? 'library-main--sidebar-collapsed' : ''}`}
       >
         <div className="library-section">
-          <LibrarySectionHeader
-            filteredCount={filteredLibrary.length}
-            libraryCount={library.length}
-            lastReadBook={lastReadBook}
-            searchValue={searchValue}
-            onSearchValueChange={setSearchValue}
-            showSettings={showSettings}
-            settingsRef={settingsRef}
-            settingsButtonRef={settingsButtonRef}
-            onToggleSettings={toggleSettings}
-            onCloseSettings={handleCloseSettings}
-            showRegenerateButton={showRegenerateButton}
-            onRegenerateCovers={onRegenerateCovers}
-            onFileInputChange={handleFileInputChange}
-            onResumeRead={handleResumeRead}
-          />
-          <LibraryBooksContent
-            isLoading={isLoading}
-            libraryCount={library.length}
-            filteredLibrary={filteredLibrary}
-            isDragOver={isDragOver}
-            viewMode={viewMode}
-            groupBy={groupBy}
-            gridStyle={gridStyle}
-            sortedAndGroupedBooks={sortedAndGroupedBooks}
-            bookCardDisplayOptions={bookCardDisplayOptions}
-            onLoadBook={handleLoadBook}
-            onDeleteBook={handleDeleteBook}
-            onEditBook={handleEditBook}
-            onRate={handleRate}
-          />
+          {activeCollectionId === 'stats' ? (
+            <StatsView library={library} />
+          ) : (
+            <>
+              <LibrarySectionHeader
+                filteredCount={filteredLibrary.length}
+                libraryCount={library.length}
+                lastReadBook={lastReadBook}
+                searchValue={searchValue}
+                onSearchValueChange={setSearchValue}
+                showSettings={showSettings}
+                settingsRef={settingsRef}
+                settingsButtonRef={settingsButtonRef}
+                onToggleSettings={toggleSettings}
+                onCloseSettings={handleCloseSettings}
+                showRegenerateButton={showRegenerateButton}
+                onRegenerateCovers={onRegenerateCovers}
+                onFileInputChange={handleFileInputChange}
+                onResumeRead={handleResumeRead}
+                onAutoFillBatch={handleAutoFillMetadataBatch}
+                isBatchProcessing={isBatchProcessing}
+                onEnterSelectMode={() => setIsSelectMode(true)}
+              />
+              <LibraryBooksContent
+                isLoading={isLoading}
+                libraryCount={library.length}
+                filteredLibrary={filteredLibrary}
+                isDragOver={isDragOver}
+                viewMode={viewMode}
+                groupBy={groupBy}
+                gridStyle={gridStyle}
+                sortedAndGroupedBooks={sortedAndGroupedBooks}
+                bookCardDisplayOptions={bookCardDisplayOptions}
+                onLoadBook={handleLoadBook}
+                onDeleteBook={handleDeleteBook}
+                onEditBook={handleEditBook}
+                onRate={handleRate}
+                isSelectMode={isSelectMode}
+                selectedBookIds={selectedBookIds}
+                onToggleSelectBook={isSelectMode ? handleToggleSelect : handleToggleSelectWithMode}
+              />
+            </>
+          )}
         </div>
       </motion.div>
 
@@ -329,6 +491,16 @@ const LibraryView = memo(function LibraryView({
         onCancel={() => setBookToDelete(null)}
       />
 
+      <ConfirmDialog
+        isOpen={showConfirmDeleteBatch}
+        title="Elimina Libri Selezionati"
+        message={`Sei sicuro di voler eliminare i ${selectedBookIds.size} libri selezionati dalla libreria? Questa azione non può essere annullata.`}
+        confirmText="Elimina"
+        isDestructive={true}
+        onConfirm={executeDeleteBatch}
+        onCancel={() => setShowConfirmDeleteBatch(false)}
+      />
+
       <EditMetadataModal
         isOpen={bookToEdit !== null}
         book={bookToEdit}
@@ -337,6 +509,49 @@ const LibraryView = memo(function LibraryView({
         onDetectChapters={handleDetectChapters}
         onAutoCalibrate={handleAutoCalibrate}
       />
+
+      <AnimatePresence>
+        {isSelectMode && (
+          <motion.div
+            className="library-action-bar"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          >
+            <div className="action-bar-content glass-panel">
+              <div className="selected-count">
+                <span>{selectedBookIds.size} {selectedBookIds.size === 1 ? 'libro selezionato' : 'libri selezionati'}</span>
+              </div>
+              <div className="action-bar-buttons">
+                <button
+                  className="action-btn text-button"
+                  onClick={handleSelectAll}
+                  title={isAllFilteredSelected ? "Deseleziona tutti" : "Seleziona tutti"}
+                >
+                  {isAllFilteredSelected ? <Square size={16} /> : <CheckSquare size={16} />}
+                  <span>{isAllFilteredSelected ? 'Deseleziona' : 'Seleziona Tutti'}</span>
+                </button>
+                <button
+                  className="action-btn text-button"
+                  onClick={handleCancelSelection}
+                >
+                  <X size={16} />
+                  <span>Annulla</span>
+                </button>
+                <button
+                  className="action-btn primary-button-small destructive"
+                  onClick={handleDeleteSelected}
+                  disabled={selectedBookIds.size === 0}
+                >
+                  <Trash2 size={16} />
+                  <span>Elimina</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 })

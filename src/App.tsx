@@ -17,6 +17,7 @@ import { useToast, useBookLoader, useHighlights } from './hooks'
 // Services & DB
 import { getBooksInCollection, updateProgress } from './db'
 import { LibraryService } from './services/LibraryService'
+import { AnalyticsService } from './services/AnalyticsService'
 
 // Store
 import { useCollectionStore, useAppStore, useLibraryStore } from './store'
@@ -240,6 +241,65 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  // Analytics Active Reading Tracker
+  const accumulatedSecondsRef = useRef<number>(0)
+  const activeBookRef = useRef<Book | null>(null)
+
+  useEffect(() => {
+    activeBookRef.current = activeBook
+  }, [activeBook])
+
+  useEffect(() => {
+    if (!activeBook) {
+      return
+    }
+
+    accumulatedSecondsRef.current = 0
+    
+    const interval = setInterval(() => {
+      if (document.hasFocus() && document.visibilityState === 'visible') {
+        accumulatedSecondsRef.current += 1
+
+        // Flush every 30 seconds
+        if (accumulatedSecondsRef.current >= 30) {
+          const currentBookId = activeBook.id
+          const secondsToRecord = accumulatedSecondsRef.current
+          accumulatedSecondsRef.current = 0
+          AnalyticsService.recordSession(currentBookId, secondsToRecord).catch(err => {
+            console.error('[Analytics] Error flushing session on interval:', err)
+          })
+        }
+      }
+    }, 1000)
+
+    const handleBeforeUnload = () => {
+      if (accumulatedSecondsRef.current > 0 && activeBookRef.current) {
+        const bookId = activeBookRef.current.id
+        const duration = accumulatedSecondsRef.current
+        accumulatedSecondsRef.current = 0
+        AnalyticsService.recordSession(bookId, duration).catch(console.error)
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      
+      // Flush remaining seconds when book changes/closes
+      if (accumulatedSecondsRef.current > 0 && activeBookRef.current) {
+        const bookId = activeBookRef.current.id
+        const duration = accumulatedSecondsRef.current
+        accumulatedSecondsRef.current = 0
+        AnalyticsService.recordSession(bookId, duration).catch(err => {
+          console.error('[Analytics] Error flushing session on teardown:', err)
+        })
+      }
+    }
+  }, [activeBook])
+
+
   // Load book when pendingBookLoad is set and viewer is ready
   useEffect(() => {
     if (pendingBookLoad && viewerReady && viewerRef.current) {
@@ -356,6 +416,23 @@ function App(): React.ReactElement {
     }
   }, [addToast])
 
+  const handleDeleteBooks = useCallback(async (ids: string[]): Promise<void> => {
+    setIsLoading(true)
+    try {
+      await Promise.all(ids.map(id => LibraryService.deleteBook(id)))
+      setLibrary(prev => prev.filter(b => !ids.includes(b.id)))
+      addToast(
+        ids.length === 1 ? '1 libro eliminato' : `${ids.length} libri eliminati`,
+        'info'
+      )
+    } catch (error) {
+      console.error('[DELETE BATCH] Error deleting books:', error)
+      addToast('Impossibile eliminare alcuni libri', 'error', 'Errore')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [addToast, setIsLoading])
+
   const handleAddBookmark = useCallback((): void => {
     if (!extendedRendition || !activeBook) return
 
@@ -441,6 +518,7 @@ function App(): React.ReactElement {
             onFileUpload={handleFileUpload}
             onLoadBook={handleLoadBook}
             onDeleteBook={handleDeleteBook}
+            onDeleteBooks={handleDeleteBooks}
             onUpdateLibrary={setLibrary}
             onRegenerateCovers={handleRegenerateCovers}
             onSearchChange={setSearchQuery}

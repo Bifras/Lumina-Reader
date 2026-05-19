@@ -91,14 +91,22 @@ describe('LibrarySectionHeader', () => {
   })
 
   it('shows regenerate button when enabled and handles click', () => {
+    const onAutoFill = vi.fn()
     render(
       <LibrarySectionHeader
         {...baseProps}
         showRegenerateButton={true}
+        onAutoFillBatch={onAutoFill}
+        isBatchProcessing={false}
       />,
     )
 
-    const button = screen.getByLabelText('Ripara copertine mancanti')
+    // Apriamo prima il menu strumenti
+    const toolsButton = screen.getByLabelText('Apri strumenti libreria')
+    fireEvent.click(toolsButton)
+
+    // Troviamo il pulsante "Ripara Copertine"
+    const button = screen.getByText('Ripara Copertine')
     fireEvent.click(button)
 
     expect(onRegenerateCovers).toHaveBeenCalledTimes(1)
